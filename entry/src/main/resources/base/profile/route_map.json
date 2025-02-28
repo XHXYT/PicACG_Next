@@ -1,0 +1,34 @@
+{
+  "routerMap": [
+    {
+      "name": "ComicDetail",
+      "pageSourceFile": "src/main/ets/pages/view/ComicDetail.ets",
+      "buildFunction": "ComicDetailBuilder"
+    },
+    {
+      "name": "ComicReader",
+      "pageSourceFile": "src/main/ets/pages/view/ComicReader.ets",
+      "buildFunction": "ComicReaderBuilder"
+    },
+    {
+      "name": "Comics",
+      "pageSourceFile": "src/main/ets/pages/view/Comics.ets",
+      "buildFunction": "ComicsBuilder"
+    },
+    {
+      "name": "ComicSearch",
+      "pageSourceFile": "src/main/ets/pages/view/ComicSearch.ets",
+      "buildFunction": "ComicSearchBuilder"
+    },
+    {
+      "name": "Leaderboard",
+      "pageSourceFile": "src/main/ets/pages/view/Leaderboard.ets",
+      "buildFunction": "LeaderboardBuilder"
+    },
+    {
+      "name": "Comments",
+      "pageSourceFile": "src/main/ets/pages/view/Comments.ets",
+      "buildFunction": "CommentsBuilder"
+    }
+  ]
+}

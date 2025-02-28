@@ -1,0 +1,28 @@
+{
+  "color": [
+    {
+      "name": "start_window_background",
+      "value": "#F1F3F5"
+    },
+    {
+      "name": "listitem_background",
+      "value": "#FFFFFFFF"
+    },
+    {
+      "name": "common_button_background_light",
+      "value": "#E582AD"
+    },
+    {
+      "name": "common_button_background_weight",
+      "value": "#CB5D7C"
+    },
+    {
+      "name": "custom_pink",
+      "value": "#DB547C"
+    },
+    {
+      "name": "custom_gray",
+      "value": "#DFDFDF"
+    }
+  ]
+}

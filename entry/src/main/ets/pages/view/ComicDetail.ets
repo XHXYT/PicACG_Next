@@ -25,6 +25,8 @@ export default struct ComicDetail {
   @StorageProp('topRectHeight') topRectHeight: number = 0
   // 导航条高度
   @StorageProp('bottomRectHeight') bottomRectHeight: number = 0
+  // 背景模糊
+  @StorageLink('foregroundBlur') foregroundBlurMode: boolean = false
   @StorageProp(PreferenceStorageKey.PRIVACY_MODE) privacyMode: boolean = false
   @StorageProp(PreferenceStorageKey.IMAGE_API) imageApi: string = ''
   @Consume('pageStack') pageStack: NavPathStack
@@ -298,6 +300,7 @@ export default struct ComicDetail {
                 .onClick(() => {
                   LogUtil.info('点击评论')
                   this.showComments = true
+                  this.foregroundBlurMode = true
                 })
               }
             }
@@ -412,8 +415,8 @@ export default struct ComicDetail {
         .width('100%')
         .constraintSize({ minHeight: '100%' })
       }
-      .scrollBar(BarState.Off)
       .layoutWeight(1)
+      .scrollBar(BarState.Off)
       .padding({ left: 10, right: 10, bottom: this.bottomRectHeight })
 
       HalfModal({
@@ -430,15 +433,18 @@ export default struct ComicDetail {
           showClose: false,
           dragBar: false,
           blurStyle: BlurStyle.COMPONENT_ULTRA_THIN,
-          onDisappear: () => {
+          onWillDismiss: () => {
+            this.foregroundBlurMode = false
             this.showComments = false
-          },
+          }
         }
       })
     }
     .hideTitleBar(true)
+    .backgroundColor($r('app.color.start_window_background'))
     .mode(NavDestinationMode.STANDARD)
     .padding({top: this.topRectHeight})
+    .foregroundBlurStyle(this.foregroundBlurMode ? BlurStyle.Thin : BlurStyle.NONE)
     .onReady((context: NavDestinationContext) => {
       this.comic = context.pathInfo.param as ComicCardInterface
       LogUtil.info('本子详情页：', this.comic.id, ' - ', this.comic.title)

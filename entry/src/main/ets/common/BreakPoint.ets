@@ -20,3 +20,23 @@ export const TabVertical: BreakpointState<boolean> = BreakpointState.of({
   lg: false,
   xl: true
 })
+
+/**
+ * 首页底部偏移量
+ */
+export const MainEndOffset: BreakpointState<number> = BreakpointState.of({
+  sm: 200,
+  md: 260,
+  lg: 30,
+  xl: 60
+})
+
+/**
+ * 首页底部偏移量
+ */
+export const MainGridColHeight: BreakpointState<number> = BreakpointState.of({
+  sm: 400,
+  md: 600,
+  lg: 600,
+  xl: 600
+})

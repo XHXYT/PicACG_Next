@@ -8,6 +8,7 @@ import { BackType, TitleBar, TitleType } from '../component/TitleBar'
 import { ImageQuality } from '../../common/Config'
 import { HistoryUtil } from '../../utils/History'
 import HalfModal from '../component/HalfModal'
+import { hilog } from '@kit.PerformanceAnalysisKit'
 
 @Builder
 export function ComicReaderBuilder(name: string, param: Object) {
@@ -21,8 +22,8 @@ export default struct ComicReader {
   // 状态栏高度
   @StorageProp('topRectHeight') topRectHeight: number = 0
   @StorageProp('bottomRectHeight') bottomRectHeight: number = 0
-  @StorageProp('WindowWidth') windowWidth: number = 0
-  @StorageProp('WindowHeight') windowHeight: number = 0
+  @StorageLink('WindowWidth') windowWidth: number = 0
+  @StorageLink('WindowHeight') windowHeight: number = 0
   @StorageProp(PreferenceStorageKey.IMAGE_API) imageApi: string = ''
   @StorageProp(PreferenceStorageKey.IMAGE_QUALITY) imageQuality: string = ''
   @Consume('pageStack') pageStack: NavPathStack
@@ -38,6 +39,7 @@ export default struct ComicReader {
   @State isEnd: boolean = false
   @State showToolbar: boolean = false
   @State showEps: boolean = false
+  @State showReadingSettings: boolean = false
   @State disappear: TransitionEffect = TransitionEffect.move(TransitionEdge.START)
   @State scaleValue: number = 1
   @State pinchValue: number = 1;
@@ -225,16 +227,73 @@ export default struct ComicReader {
               .transition(TransitionEffect.move(TransitionEdge.TOP))
 
             Row() {
-              // 空白触摸区
+              // 空白区
               Column()
                 .width('90%')
                 .height('100%')
-                .onClick(() => {
-                  animateTo({ duration: 300 }, () => {
-                    this.showToolbar = false
-                    this.showSystemBar(false)
+                .gesture(GestureGroup(GestureMode.Exclusive,
+                  // 拖动平移
+                  PanGesture()
+                    .onActionStart((event: GestureEvent | undefined) => {
+                      LogUtil.info(`拖动开始，当前偏移：${this.offsetX} ${this.offsetY}`);
+                      this.inPan = true
+                    })
+                    .onActionUpdate((event: GestureEvent | undefined) => {
+                      LogUtil.info(`拖动中`);
+                      if (event && this.scaleValue > 1) {
+                        // 动态计算缩放后的组件宽高
+                        const scaledWidth = this.windowWidth * this.scaleValue;
+                        const scaledHeight = this.windowHeight * this.scaleValue;
+                        // 容器的边界
+                        const containerLeft = 0;
+                        const containerRight = this.windowWidth;
+                        const containerTop = 0;
+                        const containerBottom = this.windowHeight;
+                        // 组件的边界（拖动后不能超过容器的范围）
+                        const minX = containerLeft - (scaledWidth - this.windowWidth) / 2;
+                        const maxX = containerRight - this.windowWidth + (scaledWidth - this.windowWidth) / 2;
+                        const minY = containerTop - (scaledHeight - this.windowHeight) / 2;
+                        const maxY = containerBottom - this.windowHeight + (scaledHeight - this.windowHeight) / 2;
+                        // 更新偏移量，并限制在边界内
+                        const newOffsetX = this.positionX + event.offsetX * 5;
+                        const newOffsetY = this.positionY + event.offsetY * 3;
+
+                        this.offsetX = Math.min(Math.max(newOffsetX, minX), maxX);
+                        this.offsetY = Math.min(Math.max(newOffsetY, minY), maxY);
+                        LogUtil.info(`正在拖动，当前偏移：${this.offsetX} ${this.offsetY}`);
+                      } else if (event) {
+                        // 动态计算未缩放时
+                        animateTo({ duration: 100 }, () => {
+                          this.scroll.scrollTo({
+                            xOffset: 0,
+                            yOffset: this.scroll.currentOffset().yOffset + event.offsetY * 3,
+                            animation: true
+                          })
+                        })
+
+                      }
+                    })
+                    .onActionEnd(() => {
+                      animateTo({ duration: 300 }, () => {
+                        if (this.scaleValue === 1) {
+                          this.offsetX = 0
+                          this.offsetY = 0
+                        }
+                      })
+                      this.positionX = this.offsetX;
+                      this.positionY = this.offsetY;
+                      LogUtil.info(`拖动结束，当前偏移：${this.offsetX} ${this.offsetY}`);
+                      this.inPan = false
+                    }),
+                  // 单击
+                  TapGesture({ count: 1, fingers: 1 }).onAction((event) => {
+                    LogUtil.info('触发空白区域单击')
+                    animateTo({ duration: 300 }, () => {
+                      this.showToolbar = false
+                      this.showSystemBar(false)
+                    })
                   })
-                })
+                ))
               // 滑动条
               Column() {
                 Slider({
@@ -338,6 +397,7 @@ export default struct ComicReader {
       .height('100%')
       .backgroundColor(Color.Black)
 
+      // 章节列表
       HalfModal({
         show: this.showEps,
         view: () => {
@@ -359,6 +419,30 @@ export default struct ComicReader {
           },
         }
       })
+
+      // 阅读设置
+      HalfModal({
+        show: this.showReadingSettings,
+        view: () => {
+          this.epsBuilder()
+        },
+        options: {
+          title: {
+            title: '目录',
+          },
+          height: SheetSize.MEDIUM,
+          showClose: false,
+          dragBar: false,
+          blurStyle: BlurStyle.COMPONENT_ULTRA_THIN,
+          onWillDismiss: () => {
+            animateTo({ duration: 500 }, () => {
+              this.showReadingSettings = false
+              this.foregroundBlurMode = false
+            })
+          },
+        }
+      })
+
     }
     .mode(NavDestinationMode.STANDARD)
     .hideTitleBar(true)
@@ -400,7 +484,7 @@ export default struct ComicReader {
   }
 
   /**
-   *
+   * 图像质量菜单
    */
   @Builder
   qualityMenu() {
@@ -426,6 +510,9 @@ export default struct ComicReader {
     .width(120)
   }
 
+  /**
+   * 章节列表
+   */
   @Builder
   epsBuilder() {
     Column() {
@@ -463,6 +550,10 @@ export default struct ComicReader {
     }
     .width('100%')
     .margin({ bottom: this.bottomRectHeight })
+  }
+
+  aboutToAppear(): void {
+    hilog.info(0x0000, 'PicaWindowLog#ComicReader', '窗口新高度：%{public}d 新宽度：%{public}i', this.windowWidth, this.windowHeight)
   }
 
   load() {

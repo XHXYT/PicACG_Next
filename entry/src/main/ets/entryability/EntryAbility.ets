@@ -72,11 +72,12 @@ export default class EntryAbility extends UIAbility {
       let topRectHeight = avoidArea.topRect.height
       AppStorage.setOrCreate('topRectHeight', px2vp(topRectHeight))
 
-      // 设备屏幕高度和宽度
-      let defaultDisplay = display.getDefaultDisplaySync()
-      let WindowHeight = defaultDisplay.height
-      let WindowWidth = defaultDisplay.width
-
+      // 应用窗口初始高度和宽度
+      let properties = windowClass.getWindowProperties()
+      let rect = properties.windowRect
+      let WindowHeight = rect.height
+      let WindowWidth = rect.width
+      hilog.info(0x0000, 'PicaWindowLog', '窗口高度：%{public}d 宽度：%{public}i', rect.height, rect.width)
       AppStorage.setOrCreate('WindowHeight', px2vp(WindowHeight))
       AppStorage.setOrCreate('WindowWidth', px2vp(WindowWidth))
 

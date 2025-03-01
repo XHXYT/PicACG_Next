@@ -16,7 +16,9 @@ import { BreakpointState } from '../../utils/BreakPoint'
 @Component
 export default struct Main {
   @StorageProp(PreferenceStorageKey.PRIVACY_MODE) privacyMode: boolean = false
+  @Consume('MainGridColHeight') mainGridColHeight: BreakpointState<number>
   @StorageProp(PreferenceStorageKey.IMAGE_API) imageApi: string = ''
+  @Consume('MainEndOffset') mainEndOffset: BreakpointState<number>
   @Consume('CompStr') compStr: BreakpointState<string>
   @State random: ComicCardInterface[] = []
   @State recommend: ComicCardInterface[] = []
@@ -120,7 +122,7 @@ export default struct Main {
         GridRow() {
           // 排行榜
           GridCol({
-            span: {sm: 12, md: deviceInfo.deviceType === 'phone' ? 7 : 12, lg: 7},
+            span: {sm: 12, md: deviceInfo.deviceType === 'tablet' ? 12 : 7, lg: 7},
             order: 1
           }) {
             Column({space: 2}) {
@@ -167,13 +169,15 @@ export default struct Main {
                     })
                   }.height('100%')
                 }
-              }.width('100%').margin({bottom: 10})
-              .height((this.currentBreakpoint === 'md' && deviceInfo.deviceType !== 'phone' || this.compStr.value === 'sm' ) ? '50%' : '100%')
+              }
+              .width('100%')
+              .margin({bottom: 10})
+              .height(deviceInfo.deviceType === 'tablet' ? 650 : this.mainGridColHeight.value)
             }
           }
 
           GridCol({
-            span: {sm: 12, md: deviceInfo.deviceType === 'phone' ? 5 : 12, lg: 5},
+            span: {sm: 12, md: deviceInfo.deviceType === 'tablet' ? 12 : 5, lg: 5},
             order: 2
           }) {
             Column({space: 5}) {
@@ -190,10 +194,10 @@ export default struct Main {
                 ComicCardScroll({ comics: this.random })
               }
             }.width('100%')
-            .height((this.currentBreakpoint === 'md' && deviceInfo.deviceType !== 'phone' || this.compStr.value === 'sm' ) ? '50%' : '100%')
+            // .height((this.currentBreakpoint === 'md' && deviceInfo.deviceType !== 'phone' || this.compStr.value === 'sm' ) ? '50%' : '100%')
             .justifyContent(FlexAlign.SpaceAround)
             .alignItems(HorizontalAlign.Center)
-          }
+          }.layoutWeight(1)
 
           // 本子妹推荐区
           /*GridCol({
@@ -210,13 +214,14 @@ export default struct Main {
             .alignItems(HorizontalAlign.Center)
           }.borderWidth(2).borderColor(Color.Green)*/
 
-        }.onBreakpointChange((breakpoint: string) => {
+        }.width('100%').height('100%')
+        .onBreakpointChange((breakpoint: string) => {
           this.currentBreakpoint = breakpoint;
         })
       }
     }.backgroundColor($r('app.color.start_window_background'))
     .scrollBar(BarState.Off)
-    .contentEndOffset(this.compStr.value === 'sm' ? 200 : 30)
+    .contentEndOffset(this.mainEndOffset.value)
     .width('100%')
     .padding(10)
   }

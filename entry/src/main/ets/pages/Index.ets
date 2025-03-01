@@ -6,23 +6,33 @@ import SearchHead from './component/SearchHead'
 import { BusinessError } from '@ohos.base'
 import { LogUtil } from '@pura/harmony-utils'
 import { BreakpointState, BreakpointSystem } from '../utils/BreakPoint'
-import { CompStr, TabVertical } from '../common/BreakPoint'
+import { CompStr, MainEndOffset, MainGridColHeight, TabVertical } from '../common/BreakPoint'
 import { deviceInfo } from '@kit.BasicServicesKit'
+import { window } from '@kit.ArkUI'
+import { common } from '@kit.AbilityKit'
+import { hilog } from '@kit.PerformanceAnalysisKit'
+
+const context = getContext(this) as common.UIAbilityContext
 
 @Entry
 @Component
 struct Index {
   @State currentTabIndex: number = 0
   @State refreshKeyword: boolean = false
+  @StorageLink('WindowWidth') windowWidth: number = 0
+  @StorageLink('WindowHeight') windowHeight: number = 0
   @StorageProp('topRectHeight') topRectHeight: number = 0
   @StorageProp('bottomRectHeight') bottomRectHeight: number = 0
   @Provide('pageStack') pageStack: NavPathStack = new NavPathStack()
   @StorageLink('foregroundBlur') foregroundBlurMode: boolean = false
   // 断点
-  @Provide('CompStr') compStr: BreakpointState<string> = CompStr
+  @Provide('CompStr')@Watch('onWindowChange') compStr: BreakpointState<string> = CompStr
   // tab栏模式
   @Provide('TabVertical') compVertical: BreakpointState<boolean> = TabVertical
-
+  // 首页底部偏移量
+  @Provide('MainEndOffset') mainEndOffset: BreakpointState<number> = MainEndOffset
+  // 首页GridCol高度
+  @Provide('MainGridColHeight') mainGridColHeight: BreakpointState<number> = MainGridColHeight
 
   tabController: TabsController = new TabsController()
 
@@ -31,6 +41,32 @@ struct Index {
     new NavItem(1, $r('sys.symbol.square_fill_grid_2x2'), '分类'),
     new NavItem(2, $r('sys.symbol.person'), '我的')
   ]
+
+  onWindowChange() {
+    let windowClass: window.Window | undefined = undefined
+    try {
+      let promise = window.getLastWindow(context)
+      promise.then((data)=> {
+        // 获取窗口对象
+        windowClass = data
+        try {
+          // 获取窗口属性
+          let properties = windowClass.getWindowProperties()
+          let rect = properties.windowRect
+          // 更新保存窗口宽度和高度
+          this.windowWidth = px2vp(rect.width)
+          this.windowHeight = px2vp(rect.height)
+          hilog.info(0x0000, 'PicaWindowLog', '窗口新高度：%{public}d 新宽度：%{public}i', this.windowWidth, this.windowHeight)
+        } catch (exception) {
+          console.error('Failed to obtain the window properties. Cause: ' + JSON.stringify(exception));
+        }
+        console.info('Succeeded in obtaining the top window. Data: ' + JSON.stringify(data));
+      }).catch((err: BusinessError)=>{
+        console.error('Failed to obtain the top window. Cause: ' + JSON.stringify(err));
+      });} catch (exception) {
+      console.error('Failed to obtain the top window. Cause: ' + JSON.stringify(exception));
+    }
+  }
 
   @Builder
   TabBuilder(navItem: NavItem) {
@@ -42,7 +78,7 @@ struct Index {
       }) {
         SymbolGlyph(navItem.tabIcons)
           .fontColor([this.currentTabIndex === navItem.index ? $r('app.color.common_button_background_light') : Color.Gray])
-            //分层颜色
+            // 分层颜色
           .renderingStrategy(SymbolRenderingStrategy.MULTIPLE_OPACITY)
           .fontSize(25)
         Text(navItem.title)
@@ -117,6 +153,8 @@ struct Index {
     BreakpointSystem.getInstance().start()
     BreakpointSystem.getInstance().attach(this.compStr)
     BreakpointSystem.getInstance().attach(this.compVertical)
+    BreakpointSystem.getInstance().attach(this.mainEndOffset)
+    BreakpointSystem.getInstance().attach(this.mainGridColHeight)
     LogUtil.info('断点为：' + this.compStr.value)
   }
 

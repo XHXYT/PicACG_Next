@@ -5,6 +5,10 @@
       "value": "#F1F3F5"
     },
     {
+      "name": "font_color",
+      "value": "#000000"
+    },
+    {
       "name": "listitem_background",
       "value": "#FFFFFFFF"
     },

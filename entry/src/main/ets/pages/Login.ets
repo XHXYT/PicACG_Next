@@ -26,7 +26,7 @@ struct Login {
         // 图标区
         GridCol({span: {sm: 12, md: deviceInfo.deviceType === 'phone' ? 6 : 12, lg: 6}}) {
           Column() {
-            Image($r('app.media.login_bg'))
+            Image($rawfile('login_bg.png'))
               .objectFit(ImageFit.Contain)
               .aspectRatio(1)
               .onAreaChange((oldValue: Area, newValue: Area) => {

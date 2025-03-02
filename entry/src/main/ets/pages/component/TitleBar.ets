@@ -482,3 +482,51 @@ export struct TitleBar {
 
   }
 }
+
+@Component
+export struct SettingsTitleBar {
+  @State title: string = ''
+  @State subtitle: string = ''
+  @State showBack: boolean = false
+  @Consume('NavSettingsPathStack') SettingsPageInfos: NavPathStack
+
+  build() {
+    Row({space: 5}) {
+      // 返回图标
+      if (this.showBack) {
+        Button({ type: ButtonType.Circle, stateEffect: true }) {
+          SymbolGlyph($r('sys.symbol.chevron_left'))
+            .fontSize(25)
+        }.margin({left: 16})
+        .width(40)
+        .height(40)
+        .backgroundColor('#FFE4E7E8')
+        .onClick(() => {
+          this.SettingsPageInfos.pop(true)
+        })
+      }
+      Column() {
+        Text(this.title)
+          .fontSize(20)
+          .fontColor($r('app.color.common_button_background_light'))
+          .fontWeight(FontWeight.Bold)
+          .margin(this.showBack ? {left: 3, top: 21 } : {left: 16, top: 21 })
+        if(this.subtitle) {
+          Text(this.subtitle)
+            .maxLines(1)
+            .fontSize(12)
+            .fontColor($r('app.color.common_button_background_light'))
+            .fontWeight(FontWeight.Normal)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+            .margin(this.showBack? {left: 3, top: 2 } : {left: 16, top: 2})
+        }
+      }
+      .justifyContent(FlexAlign.Center)
+      .alignItems(HorizontalAlign.Start)
+      .height(56)
+    }.alignItems(VerticalAlign.Bottom)
+    .margin({bottom: 10})
+    .width('100%')
+    .height(56)
+  }
+}

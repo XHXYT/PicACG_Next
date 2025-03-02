@@ -1,5 +1,6 @@
 import { Api, AppChannel, ImageApi, ImageQuality } from '../common/Config'
 import { HttpUtil } from './Http'
+import { bundleManager } from '@kit.AbilityKit'
 
 export interface PreferenceItem {
   name: string
@@ -14,6 +15,7 @@ export class PreferenceStorageKey {
   static readonly IMAGE_API: string = 'image'
   static readonly IMAGE_QUALITY: string = 'quality'
   static readonly PRIVACY_MODE: string = 'privacy'
+  static readonly AUTO_UPDATE: string = 'update'
 }
 
 export class PreferenceManager {
@@ -51,6 +53,8 @@ export class PreferenceManager {
     PersistentStorage.persistProp<AppChannel>(PreferenceStorageKey.APP_CHANNEL, AppChannel.One)
     // 隐私模式
     PersistentStorage.persistProp<boolean>(PreferenceStorageKey.PRIVACY_MODE, false)
+    // 自动检查更新
+    PersistentStorage.persistProp<boolean>(PreferenceStorageKey.AUTO_UPDATE, false)
   }
 
   static setApi(api: Api) {
@@ -73,4 +77,12 @@ export class PreferenceManager {
   static setPrivacyMode(mode: boolean) {
     AppStorage.setOrCreate<boolean>(PreferenceStorageKey.PRIVACY_MODE, mode)
   }
+
+  static setAutoUpdate(status: boolean) {
+    AppStorage.setOrCreate<boolean>(PreferenceStorageKey.AUTO_UPDATE, status)
+  }
+}
+
+export function getPackageInfo(){
+  return bundleManager.getBundleInfoForSelf(bundleManager.BundleFlag.GET_BUNDLE_INFO_WITH_APPLICATION)
 }

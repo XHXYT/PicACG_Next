@@ -32,6 +32,7 @@ export default struct Home {
       this.profile = res.user
       LogUtil.info(`Home 是否签到：${JSON.stringify(res.user.isPunched)}`)
       LogUtil.info(`Home 个人信息：${JSON.stringify(res.user)}`)
+      LogUtil.info(`Home 头像地址：${this.imageApi + this.profile?.avatar?.path}`)
     })
   }
 
@@ -41,7 +42,7 @@ export default struct Home {
         Row() {
           Column() {
             // 头像
-            Image(this.imageApi + this.profile?.avatar?.path)
+            Image(`${this.imageApi + this.profile?.avatar?.path}`)
               .width(64)
               .height(64)
               .borderRadius(100)
@@ -51,7 +52,7 @@ export default struct Home {
           .margin({ right: 16 })
 
           Column() {
-            // 昵称+个签
+            // 昵称 + 个签
             Text(`${this.profile?.name}`)
               .fontWeight(FontWeight.Bold)
               .maxLines(1)

@@ -2,12 +2,15 @@ import { DialogUtil, LogUtil } from '@pura/harmony-utils'
 import { Api, ImageApi, ImageQuality } from '../common/Config'
 import { StorageKey } from '../common/Consts'
 import { PreferenceItem, PreferenceManager, PreferenceStorageKey } from '../utils/Preference'
-import { BackType, TitleBar, TitleType } from './component/TitleBar'
+import { SettingsTitleBar } from './component/TitleBar'
 import { promptAction, router } from '@kit.ArkUI'
 import { DialogAction } from '@pura/harmony-utils/src/main/ets/entity/constraint'
 import { HistoryUtil } from '../utils/History'
 import SettingsItem from './component/SettingsItem'
 import HalfModal from './component/HalfModal'
+import { BreakpointState } from '../utils/BreakPoint'
+import { deviceInfo } from '@kit.BasicServicesKit'
+import { About, AboutApp, CheckUpdate } from './view/About'
 
 @Entry
 @Component
@@ -17,6 +20,10 @@ struct Settings {
   @StorageLink(PreferenceStorageKey.API) api: Api = Api.Origin
   @StorageLink(PreferenceStorageKey.IMAGE_API) imageApi: ImageApi = ImageApi.TriageOne
   @StorageLink(PreferenceStorageKey.IMAGE_QUALITY) imageQuality: ImageQuality = ImageQuality.Original
+  @Consume('CompStr') compStr: BreakpointState<string>
+  // 设置页面栈
+  @Provide('NavSettingsPathStack') SettingsPageInfos: NavPathStack = new NavPathStack()
+  // 隐私模式变量
   @StorageLink(PreferenceStorageKey.PRIVACY_MODE) privacyMode: boolean = false
   @StorageProp(StorageKey.TOKEN) token: string = ''
   @State showApiChannel: boolean = false
@@ -53,59 +60,74 @@ struct Settings {
   }
 
   build() {
-    Column() {
-      TitleBar({
-        titleBarHeight: 60,
-        titleBarColor: $r('app.color.start_window_background'),
-        statusBarColor: $r('app.color.start_window_background'),
-        leftType: TitleType.TEXT,
-        leftText: '设置',
-        leftTextColor: $r('app.color.common_button_background_light'),
-        leftTextWeight: FontWeight.Medium
+    Navigation(this.SettingsPageInfos) {
+      SettingsTitleBar({
+        title: '设置',
       })
 
-      SettingsItem({
-        group: [
-          [
-            {
-              name: '接口线路',
-              onClick: () => {
-                this.openApiChannelChange()
-              }
-            },
-            {
-              name: '图源线路',
-              onClick: () => {
-                this.openImageChannelChange()
-              }
-            }
-          ],
-          [{
-            name: '隐私模式',
-            type: 'Switch',
-            switchVal: this.privacyMode,
-            onChange: (isOn) => {
-              animateTo({ duration: 500 }, () => {
-                this.privacyMode = isOn
-              })
-            }
-          }],
-          [{
-            name: '清除历史',
-            onClick: () => {
-              HistoryUtil.clear()
-              promptAction.showToast({ message: '浏览历史清空成功', })
-            }
-          }],
-          [{
-            name: '退出登陆',
-            show: this.token !== undefined && this.token.length > 0,
-            onClick: () => {
-              this.logout()
-            }
-          }],
-        ]
-      })
+      List({space: 12}) {
+        ListItem() {
+          SettingsItem({
+            group: [
+              [
+                {
+                  name: '接口线路',
+                  type: 'Normal',
+                  onClick: () => {
+                    this.openApiChannelChange()
+                  }
+                },
+                {
+                  name: '图源线路',
+                  type: 'Normal',
+                  onClick: () => {
+                    this.openImageChannelChange()
+                  }
+                }
+              ],
+              [{
+                name: '隐私模式',
+                type: 'Switch',
+                switchVal: this.privacyMode,
+                onChange: (isOn) => {
+                  animateTo({ duration: 500 }, () => {
+                    this.privacyMode = isOn
+                  })
+                }
+              }],
+              [{
+                name: '关于',
+                type: 'Normal',
+                onClick: () => {
+                  this.SettingsPageInfos.pushPathByName('About', false)
+                }
+              }],
+              [{
+                name: '清除历史',
+                type: 'Normal',
+                onClick: () => {
+                  HistoryUtil.clear()
+                  promptAction.showToast({ message: '浏览历史清空成功', })
+                }
+              }],
+              [{
+                name: '退出登陆',
+                type: 'Normal',
+                show: this.token !== undefined && this.token.length > 0,
+                onClick: () => {
+                  this.logout()
+                }
+              }],
+            ]
+          })
+        }
+
+        ListItem() {
+          Text('本应用仅供学习交流！')
+        }
+      }.width('100%')
+      .alignListItem(ListItemAlign.Center)
+      .contentEndOffset(75)
 
       HalfModal({
         show: this.showApiChannel,
@@ -149,8 +171,10 @@ struct Settings {
     }
     .width('100%')
     .height('100%')
-    .layoutWeight(1)
+    .hideToolBar(true)
     .backgroundColor($r('app.color.start_window_background'))
+    .navDestination(this.SettingsPagesMap)
+    .mode((this.compStr.value === 'md' && deviceInfo.deviceType === 'phone') ? NavigationMode.Stack : NavigationMode.Auto)
   }
 
   @Builder
@@ -191,6 +215,21 @@ struct Settings {
     .width('100%')
     .padding({ left: 20, right: 20, bottom: this.bottomRectHeight })
   }
+
+  /**
+   * 设置页路由表
+   */
+  @Builder
+  SettingsPagesMap(name: string) {
+    if (name === 'About') {
+      About()
+    } else if ( name === 'CheckUpdate') {
+      CheckUpdate()
+    } else if ( name === 'AboutApp') {
+      AboutApp()
+    }
+  }
+
 }
 
 @Builder

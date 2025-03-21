@@ -123,8 +123,8 @@ struct Settings {
         }
 
         ListItem() {
-          Text('本应用仅供学习交流！')
-        }
+          Text('本应用不提供任何服务，服务内容源自平台，此应用仅供学习交流！')
+        }.width('90%')
       }.width('100%')
       .alignListItem(ListItemAlign.Center)
       .contentEndOffset(75)

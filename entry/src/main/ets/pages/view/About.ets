@@ -60,13 +60,6 @@ export struct About {
                   onClick: () => {
                     this.SettingsPageInfos.pushPathByName('AboutApp', false)
                   }
-                },
-                {
-                  name: '三方库与服务',
-                  type: 'Normal',
-                  onClick: () => {
-
-                  }
                 }
               ],
               [
@@ -113,8 +106,8 @@ export struct AboutApp {
   build() {
     NavDestination() {
       SettingsTitleBar({
-        title: '关于',
-        subtitle: '关于应用',
+        title: '关于应用',
+        subtitle: '',
         showBack: true
       })
       List() {
@@ -125,37 +118,37 @@ export struct AboutApp {
                 {
                   image: $rawfile('Luxcis.png'),
                   name: '原作者：Luxcis',
-                  subtitle: 'https://github.com/Luxcis',
+                  subtitle: '',
                   onClick: () => {
-                    GoToWeb('https://github.com/Luxcis', context)
+
                   }
                 },
-                {
+               /* {
                   image: $r('app.media.startIcon'),
                   name: '应用原仓库',
                   subtitle: 'https://github.com/Luxcis/PicACG_Next',
                   onClick: () => {
                     GoToWeb('https://github.com/Luxcis/PicACG_Next', context)
                   }
-                }
+                }*/
               ],
               [
                 {
                   image: $rawfile('ya.png'),
                   name: '此分支作者：小雅',
-                  subtitle: 'https://github.com/XHXYT',
+                  subtitle: '',
                   onClick: () => {
-                    GoToWeb('https://github.com/XHXYT', context)
+
                   }
                 },
-                {
+               /* {
                   image: $r('app.media.startIcon'),
                   name: '此分支仓库',
                   subtitle: 'https://github.com/XHXYT/PicACG_Next',
                   onClick: () => {
                     GoToWeb('https://github.com/XHXYT/PicACG_Next', context)
                   }
-                }
+                }*/
               ],
             ]
           })
@@ -216,8 +209,8 @@ export struct CheckUpdate {
   build() {
     NavDestination() {
       SettingsTitleBar({
-        title: '关于',
-        subtitle: '检查更新',
+        title: '检查更新',
+        subtitle: '',
         showBack: true,
       })
 

@@ -1,7 +1,7 @@
 # PicACG_Next
 
 [![GitHub](https://img.shields.io/github/license/Luxcis/PicACG_Next)](https://raw.githubusercontent.com/Luxcis/PicACG_Next/master/LICENSE.txt)
-![Relese](https://img.shields.io/badge/AtkTS-13-brightgreen)
+![Relese](https://img.shields.io/badge/AtkTS-14-brightgreen)
 [![Relese](https://img.shields.io/github/v/release/Luxcis/PicACG_Next)](https://github.com/Luxcis/PicACG_Next/releases)
 
 - 哔咔漫画鸿蒙Next客户端，界面使用ArkTS

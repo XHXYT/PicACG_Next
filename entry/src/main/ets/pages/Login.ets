@@ -6,11 +6,15 @@ import { PreferenceStorageKey } from '../utils/Preference'
 import { deviceInfo } from '@kit.BasicServicesKit'
 import { SettingsPage } from './Settings'
 import { hilog } from '@kit.PerformanceAnalysisKit'
+import { BreakpointState, BreakpointSystem } from '../utils/BreakPoint'
+import { LoginImageHeight } from '../common/BreakPoint'
 
 
 @Entry
 @Component
 struct Login {
+  // 登录页GridCol高度
+  @Provide('LoginImageHeight') loginImageHeight: BreakpointState<string> = LoginImageHeight
   @StorageProp(PreferenceStorageKey.PRIVACY_MODE) privacyMode: boolean = false
   @StorageProp('foregroundBlur') foregroundBlurMode: boolean = false
   @StorageLink(StorageKey.TOKEN) token: string = ''
@@ -23,6 +27,8 @@ struct Login {
   @State isLoading: boolean = true
 
   aboutToAppear(): void {
+    BreakpointSystem.getInstance().start()
+    BreakpointSystem.getInstance().attach(this.loginImageHeight)
     hilog.info(0x0000, 'PicaLauncher', '进入启动页%{public}s', )
     if ((this.token !== '')) {
       hilog.info(0x0000, 'PicaLauncher', '已登录%{public}s', )
@@ -31,6 +37,10 @@ struct Login {
       hilog.info(0x0000, 'PicaLauncher', '未登录%{public}s', )
       // router.replaceUrl({ url: 'pages/Login' })
     }
+  }
+
+  aboutToDisappear(): void {
+
   }
 
   build() {
@@ -49,7 +59,7 @@ struct Login {
           }.width('100%')
           .justifyContent(FlexAlign.Center)
           .foregroundBlurStyle(this.privacyMode ? BlurStyle.Thin : BlurStyle.NONE)
-          .height((this.currentBreakpoint === 'md' && deviceInfo.deviceType !== 'phone') ? '60%' : '100%')
+          .height((this.currentBreakpoint === 'md' && deviceInfo.deviceType === 'phone') ? '100%' : this.loginImageHeight.value)
         }
         // 登录区
         GridCol({span: {sm: 12, md: deviceInfo.deviceType === 'phone' ? 6 : 12, lg: 6}}) {
@@ -130,7 +140,7 @@ struct Login {
                   Text('前往登录').fontColor(Color.White).textAlign(TextAlign.Center)
                 }.height(40)
               }
-              .width('20%')
+              .width('30%')
               .backgroundColor($r('app.color.common_button_background_light'))
               .clickEffect({ level: ClickEffectLevel.LIGHT })
               .onClick(() => {
@@ -145,9 +155,9 @@ struct Login {
               })
             }
           }.width('100%')
-          .height((this.currentBreakpoint === 'md' && deviceInfo.deviceType !== 'phone') ? '40%' : '100%')
           .justifyContent(FlexAlign.Center)
           .alignItems(HorizontalAlign.Center)
+          .height((this.currentBreakpoint === 'md' && deviceInfo.deviceType === 'phone') ? '100%' : this.loginImageHeight.value)
         }
       }.onBreakpointChange((breakpoint: string) => {
         this.currentBreakpoint = breakpoint;

@@ -6,7 +6,9 @@ import SearchHead from './component/SearchHead'
 import { BusinessError } from '@ohos.base'
 import { LogUtil } from '@pura/harmony-utils'
 import { BreakpointState, BreakpointSystem } from '../utils/BreakPoint'
-import { CompStr, MainEndOffset, MainGridColHeight, TabVertical } from '../common/BreakPoint'
+import { CompStr, LoginImageHeight, MainEndOffset,
+  MainLeaderboardHeight,
+  MainPageColumnsTemplate, TabVertical } from '../common/BreakPoint'
 import { deviceInfo } from '@kit.BasicServicesKit'
 import { window } from '@kit.ArkUI'
 import { common } from '@kit.AbilityKit'
@@ -36,8 +38,10 @@ struct Index {
   @Provide('TabVertical') compVertical: BreakpointState<boolean> = TabVertical
   // 首页底部偏移量
   @Provide('MainEndOffset') mainEndOffset: BreakpointState<number> = MainEndOffset
-  // 首页GridCol高度
-  @Provide('MainGridColHeight') mainGridColHeight: BreakpointState<number> = MainGridColHeight
+  // 首页排行榜高度
+  @Provide('MainLeaderboardHeight') mainLeaderboardHeight: BreakpointState<number> = MainLeaderboardHeight
+  // 首页Grid列数
+  @Provide('MainPageColumnsTemplate') mainPageColumnsTemplate: BreakpointState<string> = MainPageColumnsTemplate
   // 自动更新变量
   @StorageLink(PreferenceStorageKey.AUTO_UPDATE) autoUpdate: boolean = false
   // 应用更新信息
@@ -188,12 +192,6 @@ struct Index {
   }
 
   async aboutToAppear(): Promise<void> {
-    // 启用监听断点事件
-    BreakpointSystem.getInstance().start()
-    BreakpointSystem.getInstance().attach(this.compStr)
-    BreakpointSystem.getInstance().attach(this.compVertical)
-    BreakpointSystem.getInstance().attach(this.mainEndOffset)
-    BreakpointSystem.getInstance().attach(this.mainGridColHeight)
     LogUtil.info('断点为：' + this.compStr.value)
     // 查询版本号
     const packageInfo = await getPackageInfo()
@@ -223,6 +221,15 @@ struct Index {
     }
   }
 
+  onPageShow(): void {
+    // 启用监听断点事件
+    // BreakpointSystem.getInstance().start()
+    BreakpointSystem.getInstance().attach(this.compStr)
+    BreakpointSystem.getInstance().attach(this.compVertical)
+    BreakpointSystem.getInstance().attach(this.mainEndOffset)
+    BreakpointSystem.getInstance().attach(this.mainLeaderboardHeight)
+    BreakpointSystem.getInstance().attach(this.mainPageColumnsTemplate)
+  }
 
   aboutToDisappear(): void {
     // 停止监听断点事件，并清空断点对应数据

@@ -19,6 +19,7 @@ export default struct Home {
   @State animationDuration: number = 300
   @State tabs: string[] = ['浏览历史', '我的收藏', '我的评论']
   @State index: number = 0
+  @State AvatarUrl: string = ''
   @State profile: User | undefined = undefined
   swiperController = new SwiperController()
   tabController4 = new SlidingTabControllerV1(this.swiperController)
@@ -30,6 +31,7 @@ export default struct Home {
   loadProfile() {
     profile().then(res => {
       this.profile = res.user
+      this.AvatarUrl = `${this.imageApi + this.profile?.avatar?.path}`
       LogUtil.info(`Home 是否签到：${JSON.stringify(res.user.isPunched)}`)
       LogUtil.info(`Home 个人信息：${JSON.stringify(res.user)}`)
       LogUtil.info(`Home 头像地址：${this.imageApi + this.profile?.avatar?.path}`)
@@ -42,7 +44,7 @@ export default struct Home {
         Row() {
           Column() {
             // 头像
-            Image(`${this.imageApi + this.profile?.avatar?.path}`)
+            Image(this.AvatarUrl)
               .width(64)
               .height(64)
               .borderRadius(100)

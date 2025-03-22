@@ -28,7 +28,7 @@ export default class EntryAbility extends UIAbility {
     let loadPage: string = 'pages/Login'
     hilog.info(0x0000, 'PicaAbilityTokenLog', 'token: %{public}s', AppStorage.get<string>(StorageKey.TOKEN))
 
-    windowStage.loadContent('pages/Launcher', (err) => {
+    windowStage.loadContent('pages/Login', (err) => {
       if (err.code) {
         hilog.error(0x0000, 'PicaAbilityLog', 'Failed to load the content. Cause: %{public}s',
           JSON.stringify(err) ?? '')

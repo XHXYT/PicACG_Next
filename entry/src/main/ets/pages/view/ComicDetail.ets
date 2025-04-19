@@ -306,6 +306,21 @@ export default struct ComicDetail {
             }
             .width('17%')
             .enabled(!this.showComments)
+            .bindSheet($$this.showComments, this.comments(), {
+              title: {
+                title: '评论区',
+                subtitle: '发表你的观点吧~',
+              },
+              height: SheetSize.MEDIUM,
+              preferType: SheetType.CENTER,
+              showClose: false,
+              dragBar: false,
+              blurStyle: BlurStyle.COMPONENT_ULTRA_THIN,
+              onWillDismiss: () => {
+                this.foregroundBlurMode = false
+                this.showComments = false
+              }
+            })
           }
           .margin({ bottom: 15 })
 
@@ -419,26 +434,6 @@ export default struct ComicDetail {
       .scrollBar(BarState.Off)
       .padding({ left: 10, right: 10, bottom: this.bottomRectHeight })
 
-      HalfModal({
-        show: this.showComments,
-        view: () => {
-          this.comments()
-        },
-        options: {
-          title: {
-            title: '评论区',
-            subtitle: '发表你的观点吧~',
-          },
-          height: SheetSize.MEDIUM,
-          showClose: false,
-          dragBar: false,
-          blurStyle: BlurStyle.COMPONENT_ULTRA_THIN,
-          onWillDismiss: () => {
-            this.foregroundBlurMode = false
-            this.showComments = false
-          }
-        }
-      })
     }
     .hideTitleBar(true)
     .backgroundColor($r('app.color.start_window_background'))

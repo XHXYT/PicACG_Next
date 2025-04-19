@@ -16,7 +16,7 @@ struct Login {
   // 登录页GridCol高度
   @Provide('LoginImageHeight') loginImageHeight: BreakpointState<string> = LoginImageHeight
   @StorageProp(PreferenceStorageKey.PRIVACY_MODE) privacyMode: boolean = false
-  @StorageProp('foregroundBlur') foregroundBlurMode: boolean = false
+  @StorageLink('foregroundBlur') foregroundBlurMode: boolean = false
   @StorageLink(StorageKey.TOKEN) token: string = ''
   @State private currentBreakpoint: string = 'md'
   @State private imageHeight: number = 0
@@ -29,12 +29,12 @@ struct Login {
   aboutToAppear(): void {
     BreakpointSystem.getInstance().start()
     BreakpointSystem.getInstance().attach(this.loginImageHeight)
-    hilog.info(0x0000, 'PicaLauncher', '进入启动页%{public}s', )
+    hilog.info(0x0000, 'PicaLogin', '进入启动页%{public}s', )
     if ((this.token !== '')) {
-      hilog.info(0x0000, 'PicaLauncher', '已登录%{public}s', )
+      hilog.info(0x0000, 'PicaLogin', '已登录%{public}s', )
       router.replaceUrl({ url: 'pages/Index' })
     } else {
-      hilog.info(0x0000, 'PicaLauncher', '未登录%{public}s', )
+      hilog.info(0x0000, 'PicaLogin', '未登录%{public}s', )
       // router.replaceUrl({ url: 'pages/Login' })
     }
   }
@@ -116,7 +116,6 @@ struct Login {
               .width(40)
               .clickEffect({ level: ClickEffectLevel.LIGHT })
               .onClick(() => {
-                // router.pushUrl({ url: 'pages/Settings' })
                 this.foregroundBlurMode = true
                 this.isShowSettings = true
               })
@@ -145,7 +144,7 @@ struct Login {
               .clickEffect({ level: ClickEffectLevel.LIGHT })
               .onClick(() => {
                 animateTo({
-                  duration: 520,
+                  duration: 690,
                   curve: Curve.ExtremeDeceleration,
                   iterations: 1,
                   playMode: PlayMode.Normal

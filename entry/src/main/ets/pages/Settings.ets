@@ -20,7 +20,6 @@ struct Settings {
   @StorageLink(PreferenceStorageKey.API) api: Api = Api.Origin
   @StorageLink(PreferenceStorageKey.IMAGE_API) imageApi: ImageApi = ImageApi.TriageOne
   @StorageLink(PreferenceStorageKey.IMAGE_QUALITY) imageQuality: ImageQuality = ImageQuality.Original
-  @Consume('CompStr') compStr: BreakpointState<string>
   // 设置页面栈
   @Provide('NavSettingsPathStack') SettingsPageInfos: NavPathStack = new NavPathStack()
   // 隐私模式变量
@@ -174,7 +173,6 @@ struct Settings {
     .hideToolBar(true)
     .backgroundColor($r('app.color.start_window_background'))
     .navDestination(this.SettingsPagesMap)
-    .mode((this.compStr.value === 'md' && deviceInfo.deviceType === 'phone') ? NavigationMode.Stack : NavigationMode.Auto)
   }
 
   @Builder

@@ -90,7 +90,7 @@ export default struct SearchHead {
             // 打开设置
             this.isShowSettings = false
           },
-          onWillSpringBackWhenDismiss: () => {},
+          onWillSpringBackWhenDismiss: () => {}, // 预防错误回弹
           onDisappear: () => {}
         })
       }.height(30).width(40)

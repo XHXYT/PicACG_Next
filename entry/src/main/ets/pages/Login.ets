@@ -131,7 +131,9 @@ struct Login {
                   this.foregroundBlurMode = false
                   // 打开设置
                   this.isShowSettings = false
-                }
+                },
+                onWillSpringBackWhenDismiss: () => {},  // 预防错误回弹
+                onDisappear: () => {}
               })
             } else {
               Button({ type: ButtonType.Capsule }) {

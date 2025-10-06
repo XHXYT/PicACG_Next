@@ -489,7 +489,7 @@ export default struct ComicReader {
   @Builder
   qualityMenu() {
     Menu() {
-      ForEach(PreferenceManager.ImageQualityItem, ((item: PreferenceItem) => {
+      ForEach(PreferenceManager.ImageQualityItems, ((item: PreferenceItem) => {
         MenuItem({
           content: item.name,
         })

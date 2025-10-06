@@ -1,13 +1,13 @@
 import { extractUpdateInfo, getUpdateInfo, UpdateInfo } from '../../utils/CheckUpdate'
-import SettingsItem from '../component/SettingsItem'
+import SettingsList from '../component/SettingsList'
 import { SettingsTitleBar } from '../component/TitleBar'
 import { promptAction } from '@kit.ArkUI'
 import { hilog } from '@kit.PerformanceAnalysisKit'
 import { PreferenceStorageKey } from '../../utils/Preference'
 import { GoToWeb } from '../../utils/GoWeb'
 import { common } from '@kit.AbilityKit'
+import { ToastUtil } from '../../utils/ToastUtils'
 
-const context = getContext(this) as common.UIAbilityContext
 
 /**
  * 关于
@@ -21,8 +21,6 @@ export struct About {
   @StorageLink(PreferenceStorageKey.AUTO_UPDATE) autoUpdate: boolean = false
   // 隐私模式变量
   @StorageLink(PreferenceStorageKey.PRIVACY_MODE) privacyMode: boolean = false
-
-  private context = this.getUIContext()
 
   build() {
     NavDestination() {
@@ -45,7 +43,7 @@ export struct About {
         }
         // 列表项
         ListItem() {
-          SettingsItem({
+          SettingsList({
             group: [
               [
                 {
@@ -77,7 +75,7 @@ export struct About {
                   type: 'Switch',
                   switchVal: this.autoUpdate,
                   onChange: (isOn) => {
-                    this.context.animateTo({ duration: 500 }, () => {
+                    ToastUtil.animateTo({ duration: 500 }, () => {
                       this.autoUpdate = isOn
                     })
                   }
@@ -90,6 +88,7 @@ export struct About {
 
       }.width('100%')
       .contentEndOffset(85)
+      .padding({ left: 16, right: 16 })
 
     }.width('100%')
     .hideTitleBar(true)
@@ -102,8 +101,9 @@ export struct About {
  */
 @Component
 export struct AboutApp {
+
   @Consume('NavSettingsPathStack') SettingsPageInfos: NavPathStack
-  @StorageProp('isLandscapePhone')  private isLandscapePhone: boolean = false
+  private context = this.getUIContext().getHostContext()! as common.UIAbilityContext
 
   build() {
     NavDestination() {
@@ -114,7 +114,7 @@ export struct AboutApp {
       })
       List() {
         ListItem() {
-          SettingsItem({
+          SettingsList({
             group: [
               [
                 {
@@ -125,14 +125,14 @@ export struct AboutApp {
 
                   }
                 },
-               /* {
+                {
                   image: $r('app.media.startIcon'),
                   name: '应用原仓库',
                   subtitle: 'https://github.com/Luxcis/PicACG_Next',
                   onClick: () => {
-                    GoToWeb('https://github.com/Luxcis/PicACG_Next', context)
+                    GoToWeb('https://github.com/Luxcis/PicACG_Next', this.context)
                   }
-                }*/
+                }
               ],
               [
                 {
@@ -148,7 +148,7 @@ export struct AboutApp {
                   name: '此分支仓库',
                   subtitle: 'https://github.com/XHXYT/PicACG_Next',
                   onClick: () => {
-                    GoToWeb('https://github.com/XHXYT/PicACG_Next', context)
+                    GoToWeb('https://github.com/XHXYT/PicACG_Next', this,context)
                   }
                 }*/
               ],
@@ -158,6 +158,7 @@ export struct AboutApp {
 
       }
       .width('100%')
+      .padding({ left: 16, right: 16 })
       .alignListItem(ListItemAlign.Center)
       .contentEndOffset(75)
     }.width('100%')
@@ -180,6 +181,7 @@ export struct CheckUpdate {
   @Consume('NavSettingsPathStack') SettingsPageInfos: NavPathStack
   // 自动更新变量
   @StorageLink(PreferenceStorageKey.AUTO_UPDATE) autoUpdate: boolean = false
+  private context = this.getUIContext().getHostContext()! as common.UIAbilityContext
 
   async aboutToAppear(): Promise<void> {
     if (!this.autoUpdate) {
@@ -194,7 +196,7 @@ export struct CheckUpdate {
       hilog.info(0xFF00, "UpdatetestTag", "Update Info: %{public}s", JSON.stringify(updateInfo))
       const theLatest = extractUpdateInfo(updateInfo)
       if (theLatest !== null) {
-        promptAction.showToast({message: '查询成功', duration: 2000 })
+        ToastUtil.showToast({message: '查询成功', duration: 2000 })
         // 查询完成
         this.latestVersionInfo = theLatest
       } else {
@@ -203,7 +205,7 @@ export struct CheckUpdate {
     } catch (err) {
       // 处理错误情况
       const infoError = `Error:${JSON.stringify(err)}`
-      promptAction.showToast({message: '查询失败', duration: 2000 })
+      ToastUtil.showToast({message: '查询失败', duration: 2000 })
       hilog.info(0xFF00, "UpdatetestTag", "Info: %{public}s", infoError)
     }
   }
@@ -219,7 +221,7 @@ export struct CheckUpdate {
       List({space: 12}) {
         // 列表项
         ListItem() {
-          SettingsItem({
+          SettingsList({
             group: [
               [
                 {
@@ -239,7 +241,7 @@ export struct CheckUpdate {
                 {
                   name: '前往更新',
                   onClick: () => {
-                    GoToWeb('https://github.com/XHXYT/PicACG_NEXT/releases/', context)
+                    GoToWeb('https://github.com/XHXYT/PicACG_NEXT/releases/', this.context)
                   }
                 }
               ],
@@ -248,7 +250,7 @@ export struct CheckUpdate {
                   name: '下载地址',
                   subtitle: this.latestVersionInfo.browser_download_url,
                   onClick: () => {
-                    GoToWeb(this.latestVersionInfo.browser_download_url, context)
+                    GoToWeb(this.latestVersionInfo.browser_download_url, this.context)
                   }
                 }
               ],
@@ -259,6 +261,7 @@ export struct CheckUpdate {
 
       }.width('100%')
       .contentEndOffset(75)
+      .padding({ left: 16, right: 16 })
 
     }.width('100%')
     .hideTitleBar(true)

@@ -4,10 +4,11 @@ import { display, router, window } from '@kit.ArkUI'
 import { BusinessError } from '@ohos.base'
 import { AppUtil, LogUtil } from '@pura/harmony-utils'
 import { StorageKey } from '../common/Consts'
-import { PreferenceManager } from '../utils/Preference'
+import { PreferenceManager, PreferenceStorageKey } from '../utils/Preference'
 import { ImageKnife } from '@ohos/imageknife'
 import { HistoryUtil } from '../utils/History'
 import { ToastUtil } from '../utils/ToastUtils'
+import { ColorModeManager } from '../utils/ColorModeManager'
 
 export default class EntryAbility extends UIAbility {
 
@@ -51,6 +52,7 @@ export default class EntryAbility extends UIAbility {
       PersistentStorage.persistProp(StorageKey.SEARCH_HISTORY, [])
       PersistentStorage.persistProp(StorageKey.FILTER_CATEGORY, [])
       PreferenceManager.init()
+      ColorModeManager.switchColorMode(this.context, AppStorage.get<string>(PreferenceStorageKey.Color_MODE)!)
     })
 
 

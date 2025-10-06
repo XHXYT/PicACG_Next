@@ -20,8 +20,8 @@ const ReplaceImageApi = (url: string): string => {
   url = url.replaceAll('//static', '/static')
   const api = AppStorage.get<string>(PreferenceStorageKey.IMAGE_API)
   if (api) {
-    PreferenceManager.ImageApiItem.forEach(item => {
-      url = url.replaceAll(item.value, api)
+    PreferenceManager.ImageApiItems.forEach(item => {
+      url = url.replaceAll(item.value as string, api)
     })
   }
   return url

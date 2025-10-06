@@ -84,6 +84,7 @@ export default struct ComicBanner {
         .alignSelf(ItemAlign.Start)
     }
     .padding({ top: 16, bottom: 16 })
+    .foregroundBlurStyle(this.privacyMode ? BlurStyle.Thin : BlurStyle.NONE)
     .onClick(() => {
       let comics: ComicCardInterface = {
         id: comic._id,

@@ -89,7 +89,9 @@ export default struct SearchHead {
             this.foregroundBlurMode = false
             // 打开设置
             this.isShowSettings = false
-          }
+          },
+          onWillSpringBackWhenDismiss: () => {},
+          onDisappear: () => {}
         })
       }.height(30).width(40)
       .alignItems(VerticalAlign.Center)

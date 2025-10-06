@@ -14,6 +14,7 @@ const context = getContext(this) as common.UIAbilityContext
  */
 @Component
 export struct About {
+
   @StorageLink('VersionName') versionName: string = ''
   @Consume('NavSettingsPathStack') SettingsPageInfos: NavPathStack
   // 自动更新变量
@@ -21,6 +22,7 @@ export struct About {
   // 隐私模式变量
   @StorageLink(PreferenceStorageKey.PRIVACY_MODE) privacyMode: boolean = false
 
+  private context = this.getUIContext()
 
   build() {
     NavDestination() {
@@ -75,7 +77,7 @@ export struct About {
                   type: 'Switch',
                   switchVal: this.autoUpdate,
                   onChange: (isOn) => {
-                    animateTo({ duration: 500 }, () => {
+                    this.context.animateTo({ duration: 500 }, () => {
                       this.autoUpdate = isOn
                     })
                   }

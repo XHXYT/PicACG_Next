@@ -7,7 +7,7 @@ import { ReplaceImageApi } from '../../common/Consts'
 import { deviceInfo } from '@kit.BasicServicesKit'
 import { TimeType } from '../../api/models'
 import { LengthMetrics } from '@kit.ArkUI'
-import ComicMainList from '../component/ComicMainList'
+import ComicBanner from '../component/ComicBanner'
 import { BreakpointState } from '../../utils/BreakPoint'
 
 /**
@@ -15,12 +15,9 @@ import { BreakpointState } from '../../utils/BreakPoint'
  */
 @Component
 export default struct Main {
+
   @StorageProp(PreferenceStorageKey.PRIVACY_MODE) privacyMode: boolean = false
-  @Consume('MainPageColumnsTemplate') mainPageColumnsTemplate: BreakpointState<string>
-  @Consume('MainLeaderboardHeight') mainLeaderboardHeight: BreakpointState<number>
   @StorageProp(PreferenceStorageKey.IMAGE_API) imageApi: string = ''
-  @Consume('MainEndOffset') mainEndOffset: BreakpointState<number>
-  @Consume('CompStr') compStr: BreakpointState<string>
   @State random: ComicCardInterface[] = []
   @State recommend: ComicCardInterface[] = []
   @State collections: ComicCardInterface[] = []
@@ -40,10 +37,82 @@ export default struct Main {
     this.loadRandom()
   }
 
+  build() {
+    List() {
+      // 排行榜-日榜-轮播图
+      ListItem() {
+        ComicBanner({
+          attr: {
+            type: 'remote', api: () => {
+              return this.api(TimeType.Hour24)
+            }
+          },
+          canSwipe: false
+        })
+      }
+      // 随机推荐区
+      ListItem() {
+        Column({space: 5}) {
+          Column({space: 7}) {
+            Text('随机推荐').width('100%').margin({top: 3})
+            ComicCardScroll({ comics: this.recommend })
+          }
+        }.width('100%')
+        .backgroundColor($r('app.color.start_window_background'))
+        .justifyContent(FlexAlign.SpaceAround)
+        .alignItems(HorizontalAlign.Center)
+      }
+      // 随机本子区
+      ListItem() {
+        Column({space: 5}) {
+          Column({space: 7}) {
+            Text('随机本子').width('100%')
+            ComicCardScroll({ comics: this.random })
+          }
+        }.width('100%')
+        .backgroundColor($r('app.color.start_window_background'))
+        .justifyContent(FlexAlign.SpaceAround)
+        .alignItems(HorizontalAlign.Center)
+      }
+      ListItem() {
+        // 本子妹推荐区
+        /*GridCol({
+          span: {sm: 12, md: deviceInfo.deviceType === 'phone' ? 6 : 12, lg: 6},
+          order: 3
+        }) {
+          Column({space: 10}) {
+            Text('本子妹推荐')
+              .width('100%')
+            ComicCardScroll({ comics: this.recommend, })
+          }.width('100%')
+          // .height((this.currentBreakpoint === 'md' && deviceInfo.deviceType !== 'phone') ? '40%' : '100%')
+          .justifyContent(FlexAlign.Center)
+          .alignItems(HorizontalAlign.Center)
+        }.borderWidth(2).borderColor(Color.Green)*/
+      }
+    }.backgroundColor($r('app.color.start_window_background'))
+    .scrollBar(BarState.Off)
+    .width('100%')
+    .padding(10)
+  }
+
+  @Builder
+  tabBuilder(index: number, name: string) {
+    Column() {
+      Text(name)
+        .fontColor(this.currentIndex === index ? $r('app.color.common_button_background_weight') : Color.Gray)
+        .fontWeight(this.currentIndex === index ? FontWeight.Bold : FontWeight.Normal)
+        .id(index.toString())
+        .onAreaChange((_oldValue: Area, newValue: Area) => {
+          this.textInfos[index] = [newValue.globalPosition.x as number, newValue.width as number]
+        })
+    }.width('100%')
+  }
+
   // 排行榜接口
   api(t: TimeType): Promise<ComicResponse> {
     return new Promise<ComicResponse>((resolve, reject) => {
-      leaderboard(t).then(res => {
+      leaderboard(t).then((res) => {
         resolve({
           comics: {
             docs: res.comics,
@@ -117,114 +186,4 @@ export default struct Main {
     })
   }
 
-  build() {
-    Grid() {
-      // 排行榜
-      GridItem() {
-        Column({space: 2}) {
-          Text(`排行榜`)
-            .width('100%')
-          Flex({
-            direction: FlexDirection.Row,
-            justifyContent: FlexAlign.Center,
-            alignItems: ItemAlign.Center,
-            space: { main: LengthMetrics.vp(3) }
-          }) {
-            // 日榜
-            Stack() {
-              ComicMainList({
-                attr: {
-                  type: 'remote', api: () => {
-                    return this.api(TimeType.Hour24)
-                  }
-                },
-                canSwipe: false
-              })
-            }.height('100%')
-            // 周榜
-            Stack() {
-              ComicMainList({
-                attr: {
-                  type: 'remote', api: () => {
-                    return this.api(TimeType.Day7)
-                  }
-                },
-                canSwipe: false
-              })
-            }.height('100%')
-            if (this.compStr.value !== 'sm') {
-              // 月榜
-              Stack() {
-                ComicMainList({
-                  attr: {
-                    type: 'remote', api: () => {
-                      return this.api(TimeType.Day30)
-                    }
-                  },
-                  canSwipe: false
-                })
-              }.height('100%')
-            }
-          }
-          .width('100%')
-          .margin({bottom: 10})
-        }
-      }
-      .height(this.currentBreakpoint === 'md' && deviceInfo.deviceType === 'phone' ? 600 : this.mainLeaderboardHeight.value)
-      // 推荐
-      GridItem() {
-        Column({space: 5}) {
-          // 随机推荐区
-          Column({space: 7}) {
-            Text('随机推荐')
-              .width('100%')
-              .margin({top: 3})
-            ComicCardScroll({ comics: this.recommend })
-          }
-          // 随机本子区
-          Column({space: 7}) {
-            Text('随机本子')
-              .width('100%')
-            ComicCardScroll({ comics: this.random })
-          }
-        }.width('100%')
-        .backgroundColor($r('app.color.start_window_background'))
-        .justifyContent(FlexAlign.SpaceAround)
-        .alignItems(HorizontalAlign.Center)
-      }
-      GridItem() {
-        // 本子妹推荐区
-        /*GridCol({
-          span: {sm: 12, md: deviceInfo.deviceType === 'phone' ? 6 : 12, lg: 6},
-          order: 3
-        }) {
-          Column({space: 10}) {
-            Text('本子妹推荐')
-              .width('100%')
-            ComicCardScroll({ comics: this.recommend, })
-          }.width('100%')
-          // .height((this.currentBreakpoint === 'md' && deviceInfo.deviceType !== 'phone') ? '40%' : '100%')
-          .justifyContent(FlexAlign.Center)
-          .alignItems(HorizontalAlign.Center)
-        }.borderWidth(2).borderColor(Color.Green)*/
-      }
-    }.backgroundColor($r('app.color.start_window_background'))
-    .columnsTemplate(this.mainPageColumnsTemplate.value)
-    .scrollBar(BarState.Off)
-    .width('100%')
-    .padding(10)
-  }
-
-  @Builder
-  tabBuilder(index: number, name: string) {
-    Column() {
-      Text(name)
-        .fontColor(this.currentIndex === index ? $r('app.color.common_button_background_weight') : Color.Gray)
-        .fontWeight(this.currentIndex === index ? FontWeight.Bold : FontWeight.Normal)
-        .id(index.toString())
-        .onAreaChange((_oldValue: Area, newValue: Area) => {
-          this.textInfos[index] = [newValue.globalPosition.x as number, newValue.width as number]
-        })
-    }.width('100%')
-  }
 }

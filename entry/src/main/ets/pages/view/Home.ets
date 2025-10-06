@@ -8,6 +8,7 @@ import { PreferenceStorageKey } from '../../utils/Preference'
 import ComicList from '../component/ComicList'
 import CommentList from '../component/CommentList'
 import { promptAction } from '@kit.ArkUI'
+import { ToastUtil } from '../../utils/ToastUtils'
 
 /**
  * 我的主页
@@ -84,7 +85,7 @@ export default struct Home {
               .onClick(() => {
                 punchIn()
                   .finally(() => {
-                    promptAction.showToast({ message: '签到成功', });
+                    ToastUtil.showToast({ message: '签到成功', });
                     this.loadProfile()
                   })
               })

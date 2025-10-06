@@ -6,20 +6,21 @@ import { PreferenceStorageKey } from '../utils/Preference'
 import { deviceInfo } from '@kit.BasicServicesKit'
 import { SettingsPage } from './Settings'
 import { hilog } from '@kit.PerformanceAnalysisKit'
-import { BreakpointState, BreakpointSystem } from '../utils/BreakPoint'
-import { LoginImageHeight } from '../common/BreakPoint'
+import { BreakpointState } from '../utils/BreakPoint'
+import { ToastUtil } from '../utils/ToastUtils'
+import { LoginImageHeight } from '../utils/breakpoint/BreakPoint'
 
 
 @Entry
 @Component
 struct Login {
-  // 登录页GridCol高度
-  @Provide('LoginImageHeight') loginImageHeight: BreakpointState<string> = LoginImageHeight
+
   @StorageProp(PreferenceStorageKey.PRIVACY_MODE) privacyMode: boolean = false
   @StorageLink('foregroundBlur') foregroundBlurMode: boolean = false
   @StorageLink(StorageKey.TOKEN) token: string = ''
-  @State private currentBreakpoint: string = 'md'
-  @State private imageHeight: number = 0
+  @State currentBreakpoint: string = 'md'
+  @StorageLink('currentWidthBreakpoint') widthBp: WidthBreakpoint = 1;
+  @State imageHeight: number = 0
   @State isShowSettings: boolean = false
   @State username: string = ''
   @State password: string = ''
@@ -27,12 +28,11 @@ struct Login {
   @State isLoading: boolean = true
 
   aboutToAppear(): void {
-    BreakpointSystem.getInstance().start()
-    BreakpointSystem.getInstance().attach(this.loginImageHeight)
     hilog.info(0x0000, 'PicaLogin', '进入启动页%{public}s', )
     if ((this.token !== '')) {
       hilog.info(0x0000, 'PicaLogin', '已登录%{public}s', )
-      router.replaceUrl({ url: 'pages/Index' })
+      router.replaceUrl({ url: 'pages/Index' }).catch(() => {
+      })
     } else {
       hilog.info(0x0000, 'PicaLogin', '未登录%{public}s', )
       // router.replaceUrl({ url: 'pages/Login' })
@@ -59,7 +59,7 @@ struct Login {
           }.width('100%')
           .justifyContent(FlexAlign.Center)
           .foregroundBlurStyle(this.privacyMode ? BlurStyle.Thin : BlurStyle.NONE)
-          .height((this.currentBreakpoint === 'md' && deviceInfo.deviceType === 'phone') ? '100%' : this.loginImageHeight.value)
+          .height(LoginImageHeight(this.widthBp))
         }
         // 登录区
         GridCol({span: {sm: 12, md: deviceInfo.deviceType === 'phone' ? 6 : 12, lg: 6}}) {
@@ -143,7 +143,7 @@ struct Login {
               .backgroundColor($r('app.color.common_button_background_light'))
               .clickEffect({ level: ClickEffectLevel.LIGHT })
               .onClick(() => {
-                animateTo({
+                ToastUtil.animateTo({
                   duration: 690,
                   curve: Curve.ExtremeDeceleration,
                   iterations: 1,
@@ -156,7 +156,7 @@ struct Login {
           }.width('100%')
           .justifyContent(FlexAlign.Center)
           .alignItems(HorizontalAlign.Center)
-          .height((this.currentBreakpoint === 'md' && deviceInfo.deviceType === 'phone') ? '100%' : this.loginImageHeight.value)
+          .height(LoginImageHeight(this.widthBp))
         }
       }.onBreakpointChange((breakpoint: string) => {
         this.currentBreakpoint = breakpoint;
@@ -177,7 +177,8 @@ struct Login {
         .then(res => {
           LogUtil.info('登陆成功')
           this.token = res.token
-          router.replaceUrl({ url: 'pages/Index' })
+          router.replaceUrl({ url: 'pages/Index' }).catch(() => {
+          })
         })
         .catch((err: Error) => {
           if (Timeout === err.message) {
@@ -205,7 +206,7 @@ struct Login {
           }
         })
         .finally(() => {
-          animateTo({ duration: 300 }, () => {
+          ToastUtil.animateTo({ duration: 300 }, () => {
             this.inLogin = false
           })
         })

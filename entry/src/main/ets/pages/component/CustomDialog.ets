@@ -6,7 +6,7 @@
 @Component
 export struct TheCustomDialog {
 
-  @State tiltle: string = ''
+  @State title: string = ''
   @State content: string = ''
   @State rightText: string = ''
   @StorageLink('foregroundBlur') foregroundBlurMode: boolean = false
@@ -21,7 +21,7 @@ export struct TheCustomDialog {
 
   build() {
     Column() {
-      Text(this.tiltle)
+      Text(this.title)
         .fontSize(20)
         .margin({ top: 15, bottom: 15 })
       Text(this.content)

@@ -1,4 +1,6 @@
 import { promptAction } from "@kit.ArkUI"
+import { AsyncCallback } from "@kit.BasicServicesKit"
+import { BusinessError } from "@kit.BasicServicesKit";
 
 class ToastUtils {
 
@@ -24,6 +26,17 @@ class ToastUtils {
     } catch (error) {
       console.error(`${key} 动画加载失败 code: ${error.code} message: ${error.message}`)
     }
+  }
+
+  showDialog(options: promptAction.ShowDialogOptions, callback: AsyncCallback<promptAction.ShowDialogSuccessResponse, void>, key?: string) {
+    try {
+      this.context?.getPromptAction().showDialog(options, callback)
+    } catch (error) {
+      let message = (error as BusinessError).message
+      let code = (error as BusinessError).code
+      console.error(`${key} showDialog error code is ${code}, message is ${message}`)
+    }
+
   }
 
 }

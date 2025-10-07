@@ -1,15 +1,19 @@
 import { LogUtil } from '@pura/harmony-utils';
 import { ComicResponse } from '../../api/comic';
 import { ComicDetailInfo, ComicSimpleInfo, SortType } from '../../api/models';
-import { favouriteAction } from '../../api/profile';
 import { StorageKey } from '../../common/Consts';
 import { HistoryUtil } from '../../utils/History';
 import { PreferenceStorageKey } from '../../utils/Preference';
 import ComicListItem from './ComicListItem';
-import { promptAction } from '@kit.ArkUI';
+import { ToastUtil } from '../../utils/ToastUtils';
+import { EventHub } from '../../utils/EventHub';
+import { EventKey } from '../../common/Config';
 
 @Component
 export default struct ComicList {
+
+  // 背景模糊
+  @StorageLink('foregroundBlur') foregroundBlurMode: boolean = false
   @StorageProp(PreferenceStorageKey.IMAGE_API) imageApi: string = ''
   @StorageProp(StorageKey.CATEGORY) category: string[] = []
   @StorageLink(StorageKey.FILTER_CATEGORY) filterCategory: string[] = []
@@ -24,6 +28,15 @@ export default struct ComicList {
   @Prop canSwipe: boolean = true
   @Prop showFilter: boolean = false
   private scroll: Scroller = new Scroller()
+
+  deleteOperate?: (comic: ComicSimpleInfo, comics: ComicDetailInfo[]) => void = undefined
+
+  aboutToAppear(): void {
+    EventHub.on<EventKey>(EventKey.LoadHistory, () => {
+      this.attr.type = 'history'
+      this.isRefreshing = true
+    })
+  }
 
   attrChange() {
     this.isRefreshing = true
@@ -41,21 +54,23 @@ export default struct ComicList {
     }
   }
 
+  // 加载历史记录
   loadHistory() {
-    animateTo({ duration: 500 }, () => {
-      HistoryUtil.get().then(res => {
-        this.comics = res
-        this.isRefreshing = false
-        this.scroll.scrollEdge(Edge.Top)
-      })
+    ToastUtil.animateTo({ duration: 500 }, async () => {
+      const res = await HistoryUtil.get()
+      this.comics = res
+      this.isRefreshing = false
+      this.scroll.scrollEdge(Edge.Top)
+      LogUtil.debug(`加载浏览历史完成，总共：${this.comics.length}`)
     })
   }
 
+  // 加载远程内容
   loadRemote() {
     if (this.attr.api !== undefined) {
       this.attr.api(this.page, this.attr.sort, this.attr.param1, this.attr.param2)
         .then(res => {
-          animateTo({ duration: 500 }, () => {
+          ToastUtil.animateTo({ duration: 500 }, () => {
             if (this.page === 1) {
               this.comics = res.comics.docs
               this.scroll.scrollEdge(Edge.Top)
@@ -69,7 +84,7 @@ export default struct ComicList {
           this.total = res.comics.total
         })
         .finally(() => {
-          animateTo({ duration: 500 }, () => {
+          ToastUtil.animateTo({ duration: 500 }, () => {
             this.isRefreshing = false
             this.isLoading = false
           })
@@ -136,7 +151,8 @@ export default struct ComicList {
                 },
                 onAction: () => {
                   LogUtil.info('onAction:触发删除操作')
-                  this.operateFavourite(comic)
+                  if (this.deleteOperate)
+                  this.deleteOperate(comic, this.comics)
                 },
                 actionAreaDistance: 56,
               }
@@ -181,7 +197,7 @@ export default struct ComicList {
           if (this.isEnd && this.page < this.maxPage) {
             LogUtil.info('onReachEnd到底辣！！！要加载更多')
             this.page++
-            animateTo({ duration: 500 }, () => {
+            ToastUtil.animateTo({ duration: 500 }, () => {
               this.isLoading = true
               this.loadComics()
             })
@@ -191,7 +207,7 @@ export default struct ComicList {
       .onRefreshing(() => {
         LogUtil.info('刷新！！！！')
         this.page = 1
-        animateTo({ duration: 500 }, () => {
+        ToastUtil.animateTo({ duration: 500 }, () => {
           this.loadComics()
         })
       })
@@ -216,24 +232,15 @@ export default struct ComicList {
       .type(ButtonType.Circle)
       .backgroundColor(Color.Red)
       .clickEffect({ level: ClickEffectLevel.LIGHT, scale: 0.8 })
-      .onClick(() => this.operateFavourite(comic))
+      .onClick(() => {
+        if (this.deleteOperate)
+          this.deleteOperate(comic, this.comics)
+      })
     }
     .padding(4)
     .justifyContent(FlexAlign.SpaceEvenly)
   }
 
-  operateFavourite(comic: ComicSimpleInfo) {
-    favouriteAction(comic._id)
-      .then(res => {
-        if (res.action === 'un_favourite') {
-          animateTo({ duration: 500 }, () => {
-            this.comics = this.comics.filter(c => c._id !== comic._id)
-          })
-          promptAction.showToast({ message: '已取消收藏', });
-        }
-      })
-
-  }
 }
 
 export interface ComicListAttribute {

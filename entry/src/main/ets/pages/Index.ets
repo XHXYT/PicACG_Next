@@ -87,14 +87,12 @@ struct Index {
         }) {
           ForEach(this.navItem, (item: NavItem) => {
             TabContent() {
-              Column() {
-                if (item.index === 0) {
-                  Main()
-                } else if (item.index === 1) {
-                  Categories()
-                } else if (item.index === 2) {
-                  Home()
-                }
+              if (item.index === 0) {
+                Main()
+              } else if (item.index === 1) {
+                Categories()
+              } else if (item.index === 2) {
+                Home()
               }
             }
             .tabBar(this.TabBuilder(item))

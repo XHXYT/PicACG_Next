@@ -2,19 +2,25 @@ import { ImageKnifeComponent } from '@ohos/imageknife'
 import { LogUtil } from '@pura/harmony-utils'
 import { SlidingTabsV1 } from '@xqw/sliding-tabs'
 import { SlidingTabControllerV1 } from '@xqw/sliding-tabs/src/main/ets/v1/SlidingTabControllerV1'
-import { User } from '../../api/models'
-import { myFavourite, profile, punchIn } from '../../api/profile'
+import { ComicDetailInfo, ComicSimpleInfo, User } from '../../api/models'
+import { favouriteAction, myFavourite, profile, punchIn } from '../../api/profile'
 import { PreferenceStorageKey } from '../../utils/Preference'
 import ComicList from '../component/ComicList'
 import CommentList from '../component/CommentList'
 import { promptAction } from '@kit.ArkUI'
 import { ToastUtil } from '../../utils/ToastUtils'
+import { HistoryUtil } from '../../utils/History'
+import { EventHub } from '../../utils/EventHub'
+import { EventKey } from '../../common/Config'
 
 /**
  * 我的主页
  */
 @Component
 export default struct Home {
+
+  // 背景模糊
+  @StorageLink('foregroundBlur') foregroundBlurMode: boolean = false
   @StorageProp(PreferenceStorageKey.IMAGE_API) imageApi: string = ''
   @State currentIndex: number = 0
   @State animationDuration: number = 300
@@ -131,16 +137,27 @@ export default struct Home {
         }
       })
       Swiper(this.tabController4.swiperController) {
+        // 浏览记录
         Stack() {
-          ComicList({ attr: { type: 'history' }, canSwipe: false })
+          ComicList({
+            attr: { type: 'history' },
+            deleteOperate: (comic, comics) => {
+              this.deleteOperate('history', comic, comics)
+            }
+          })
         }
         .width('100%').height('100%')
-
+        // 收藏
         Stack() {
-          ComicList({ attr: { type: 'remote', api: myFavourite } })
+          ComicList({
+            attr: { type: 'remote', api: myFavourite },
+            deleteOperate: (comic, comics) => {
+              this.deleteOperate('favourite', comic, comics)
+            }
+          })
         }
         .width('100%').height('100%')
-
+        // 我的评论
         Stack() {
           CommentList({ avatar: `${this.profile?.avatar?.path}` })
         }
@@ -157,9 +174,77 @@ export default struct Home {
       })
       .onAnimationStart((index, targetIndex, extraInfo) => {
         this.tabController4.swiperOnAnimationStart(index, targetIndex, extraInfo)
+        if (targetIndex === 0) {
+          EventHub.sendEvent<EventKey>(EventKey.LoadHistory)
+        }
       })
     }.backgroundColor($r('app.color.start_window_background'))
     .height('100%')
     .width('100%')
   }
+
+  // 删除操作
+  deleteOperate(id: string, comic: ComicSimpleInfo, comics: ComicDetailInfo[]) {
+    this.foregroundBlurMode = true
+    let deleteTitle = ''
+    let deleteOp: () => void = () => {}
+    switch (id) {
+      case 'history':
+        deleteTitle = '浏览历史'
+        deleteOp = () => {
+          this.deleteHistory(comic)
+        }
+        break
+      case 'favourite':
+        deleteTitle = '收藏'
+        deleteOp = () => {
+          this.operateFavourite(comic, comics)
+        }
+        break
+    }
+    ToastUtil.showDialog({
+      title: `是否删除${deleteTitle} ${comic.title}`,
+      buttons: [
+        { text: '确认', color: $r('app.color.common_button_background_light') },
+        { text: '取消', color: $r('app.color.font_color') }
+      ]
+    }, (err, data) => {
+      if (err) {
+        console.error('Pica #deleteOperate showDialog err.code: ' + err.code + ', err.message: ' + err.message);
+        return;
+      }
+      if (data.index == 0) {
+        // 确认删除
+        deleteOp()
+        console.error(`#deleteOperate 确认删除`)
+      } else {
+        console.log(`#deleteOperate 取消删除`)
+      }
+      this.foregroundBlurMode = false
+    })
+  }
+
+  // 删除浏览记录
+  deleteHistory(comic: ComicSimpleInfo) {
+    HistoryUtil.deleteSingle(comic._id).then((value) => {
+      if (value) {
+        EventHub.sendEvent<EventKey>(EventKey.LoadHistory)
+        ToastUtil.showToast({ message: `已删除 ${comic.title}`});
+      }
+    })
+  }
+
+  // 收藏操作
+  operateFavourite(comic: ComicSimpleInfo, comics: ComicDetailInfo[]) {
+    favouriteAction(comic._id)
+      .then(res => {
+        if (res.action === 'un_favourite') {
+          ToastUtil.animateTo({ duration: 500 }, () => {
+            comics = comics.filter(c => c._id !== comic._id)
+          })
+          ToastUtil.showToast({ message: `${comic.title} 已取消收藏`});
+        }
+      })
+  }
+
 }

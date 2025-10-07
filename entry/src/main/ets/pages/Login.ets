@@ -6,7 +6,6 @@ import { PreferenceStorageKey } from '../utils/Preference'
 import { deviceInfo } from '@kit.BasicServicesKit'
 import { SettingsPage } from './Settings'
 import { hilog } from '@kit.PerformanceAnalysisKit'
-import { BreakpointState } from '../utils/BreakPoint'
 import { ToastUtil } from '../utils/ToastUtils'
 import { LoginImageHeight } from '../utils/breakpoint/BreakPoint'
 

@@ -1,6 +1,6 @@
 import { AbilityConstant, UIAbility, Want } from '@kit.AbilityKit'
 import { hilog } from '@kit.PerformanceAnalysisKit'
-import { display, router, window } from '@kit.ArkUI'
+import { window } from '@kit.ArkUI'
 import { BusinessError } from '@ohos.base'
 import { AppUtil, LogUtil } from '@pura/harmony-utils'
 import { StorageKey } from '../common/Consts'
@@ -54,7 +54,6 @@ export default class EntryAbility extends UIAbility {
       PreferenceManager.init()
       ColorModeManager.switchColorMode(this.context, AppStorage.get<string>(PreferenceStorageKey.Color_MODE)!)
     })
-
 
     windowStage.getMainWindow((err, windowClass) => {
       if (err.code) {

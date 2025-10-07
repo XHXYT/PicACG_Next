@@ -1,15 +1,12 @@
 import { DialogUtil, LogUtil } from '@pura/harmony-utils'
-import { Api, AppChannel, ImageApi, ImageQuality } from '../common/Config'
+import { Api, ImageApi, ImageQuality } from '../common/Config'
 import { StorageKey } from '../common/Consts'
-import { PreferenceItem, PreferenceManager, PreferenceStorageKey } from '../utils/Preference'
+import { PreferenceManager, PreferenceStorageKey } from '../utils/Preference'
 import { SettingsTitleBar } from './component/TitleBar'
-import { promptAction, router, SymbolGlyphModifier } from '@kit.ArkUI'
+import { router } from '@kit.ArkUI'
 import { DialogAction } from '@pura/harmony-utils/src/main/ets/entity/constraint'
 import { HistoryUtil } from '../utils/History'
 import SettingsList, { SettingsItemAttribute } from './component/SettingsList'
-import HalfModal from './component/HalfModal'
-import { BreakpointState } from '../utils/BreakPoint'
-import { deviceInfo } from '@kit.BasicServicesKit'
 import { About, AboutApp, CheckUpdate } from './view/About'
 import { ToastUtil } from '../utils/ToastUtils'
 import { common } from '@kit.AbilityKit'
@@ -85,6 +82,18 @@ struct Settings {
                     PreferenceManager.setImageApi(ImageApi[value])
                     LogUtil.info(`切换图源线路为: ${this.imageApi}`)
                   }
+                },
+                {
+                  name: '图像质量',
+                  type: 'Menu',
+                  tips: PreferenceManager.ImageQualityItems.find(imageApi => imageApi.value == this.imageQuality)?.name,
+                  menus: PreferenceManager.ImageQualityItems,
+                  menuValue: this.imageQuality,
+                  onValueChange: (value) => {
+                    LogUtil.info(`value：${value} 切换图像质量: ${ImageQuality[value]}`)
+                    PreferenceManager.setImageApi(ImageQuality[value])
+                    LogUtil.info(`切换图像质量为: ${this.imageQuality}`)
+                  },
                 }
               ],
               [

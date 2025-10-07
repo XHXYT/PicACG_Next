@@ -90,8 +90,11 @@ export default struct Main {
           .alignItems(HorizontalAlign.Center)
         }.borderWidth(2).borderColor(Color.Green)*/
       }
-    }.backgroundColor($r('app.color.start_window_background'))
+    }
+    .alignListItem(ListItemAlign.Start)
+    .backgroundColor($r('app.color.start_window_background'))
     .scrollBar(BarState.Off)
+    .height('100%')
     .width('100%')
     .padding(10)
   }

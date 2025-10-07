@@ -35,6 +35,7 @@ export const favouriteAction = (id: string): Promise<ComicActionResponse> => {
   return HttpUtil.post(`/comics/${id}/favourite`)
 }
 
+/**喜爱操作，未喜爱漫画调用后进入喜爱，已喜爱漫画调用后删除喜爱*/
 export const likeAction = (id: string): Promise<ComicActionResponse> => {
   return HttpUtil.post(`/comics/${id}/like`)
 }

@@ -10,9 +10,9 @@ import { ComicListOptions, SearchType } from './Comics'
 import ComicCardScroll from '../component/ComicCardScroll'
 import CommentList from '../component/CommentList'
 import { favouriteAction, likeAction } from '../../api/profile'
-import { ComicChapterInterface } from './ComicReader'
 import { HistoryUtil } from '../../utils/History'
 import HalfModal from '../component/HalfModal'
+import { ToastUtil } from '../../utils/ToastUtils'
 
 @Builder
 export function ComicDetailBuilder(name: string, param: Object) {
@@ -31,7 +31,7 @@ export default struct ComicDetail {
   @StorageProp(PreferenceStorageKey.IMAGE_API) imageApi: string = ''
   @Consume('pageStack') pageStack: NavPathStack
   @State comic: ComicCardInterface | undefined = undefined
-  @State detail: ComicDetailInfo | undefined = undefined
+  @State detail: ComicDetailInfo = emptyComicDetailInfo
   @State eps: ComicEp[] = []
   @State recommend: ComicCardInterface[] = []
   @State showComments: boolean = false
@@ -73,7 +73,7 @@ export default struct ComicDetail {
                 Text(`${this.comic?.title}`)
                   .fontWeight(FontWeight.Bold)
                   .width('100%')
-                  .maxLines(2)
+                  .maxLines(3)
                   .textOverflow({ overflow: TextOverflow.Ellipsis })
               }
 
@@ -237,9 +237,9 @@ export default struct ComicDetail {
                   this.detail.isFavourite = !this.detail.isFavourite
                   favouriteAction(this.detail._id).then(res => {
                     if (res.action === 'favourite') {
-                      promptAction.showToast({ message: '收藏成功', });
+                      ToastUtil.showToast({ message: '收藏成功', });
                     } else {
-                      promptAction.showToast({ message: '取消收藏成功', });
+                      ToastUtil.showToast({ message: '取消收藏成功', });
                     }
                   })
                 }
@@ -265,16 +265,14 @@ export default struct ComicDetail {
                 .type(ButtonType.Circle)
                 .stateEffect(false)
                 .onClick(() => {
-                  if (this.detail) {
-                    this.detail.isLiked = !this.detail.isLiked
-                    likeAction(this.detail._id).then(res => {
-                      if (res.action === 'like') {
-                        promptAction.showToast({ message: '喜欢成功', });
-                      } else {
-                        promptAction.showToast({ message: '取消喜欢成功', });
-                      }
-                    })
-                  }
+                  this.detail.isLiked = !this.detail.isLiked
+                  likeAction(this.detail._id).then(res => {
+                    if (res.action === 'like') {
+                      ToastUtil.showToast({ message: '喜欢成功', });
+                    } else {
+                      ToastUtil.showToast({ message: '取消喜欢成功', });
+                    }
+                  })
                   LogUtil.info('点击喜欢')
                 })
               }
@@ -440,20 +438,21 @@ export default struct ComicDetail {
     .mode(NavDestinationMode.STANDARD)
     .padding({top: this.topRectHeight})
     .foregroundBlurStyle(this.foregroundBlurMode ? BlurStyle.Thin : BlurStyle.NONE)
-    .onReady((context: NavDestinationContext) => {
+    .onReady(async (context: NavDestinationContext) => {
       this.comic = context.pathInfo.param as ComicCardInterface
-      LogUtil.info('本子详情页：', this.comic.id, ' - ', this.comic.title)
-      detail(this.comic.id).then(res => {
-        animateTo({ duration: 300 }, () => {
-          this.detail = res.comic
-        })
-      })
+      LogUtil.info('ComicDetail 本子详情页：', this.comic.id, ' - ', this.comic.title)
+      // 远程查询
+      const res = await detail(this.comic.id)
+      this.detail = res.comic
+      this.detail.lastReadOrder = 1
+      // 保存历史记录
+      await HistoryUtil.add(this.detail)
 
       this.loadEps(this.comic.id, 1)
 
       recommendation(this.comic.id).then(res => {
         res.comics.forEach((comic) => {
-          animateTo({ duration: 300 }, () => {
+          ToastUtil.animateTo({ duration: 300 }, () => {
             this.recommend.push({
               id: comic._id,
               title: `${comic.title}（${comic.pagesCount}P）${comic.finished ? '（完）' : ''}`,
@@ -463,15 +462,21 @@ export default struct ComicDetail {
         })
       })
 
-      HistoryUtil.getRead(this.comic.id).then(res => {
-        this.currentOrder = res
-      })
+      // 本地浏览记录
+      const hres = await HistoryUtil.getComicDetail(this.comic.id)
+      if (hres) {
+        this.currentOrder = hres.lastReadOrder
+        console.log(`ComicDetail 更新 ${this.detail.title}，id：${this.detail._id} 阅读记录至${hres.lastReadOrder}章 index: ${hres.lastReadIndex}`)
+        this.detail = hres
+        console.log(`ComicDetail 更新 ${this.detail.title}，id：${this.detail._id} 阅读记录至${this.detail.lastReadOrder}章 index: ${this.detail.lastReadIndex}`)
+      }
     })
-    .onShown(() => {
-      if (this.detail) {
-        HistoryUtil.getRead(this.detail._id).then(res => {
-          this.currentOrder = res
-        })
+    .onShown(async () => {
+      const res = await HistoryUtil.getComicDetail(this.detail._id)
+      if (res) {
+        this.currentOrder = res.lastReadOrder
+        this.detail = res
+        console.log(`ComicDetail 更新 ${this.detail.title} 阅读记录至${this.detail.lastReadOrder}章 index: ${this.detail.lastReadIndex}`)
       }
     })
   }
@@ -484,7 +489,7 @@ export default struct ComicDetail {
 
   loadEps(id: string, page: number) {
     eps(id, page).then(res => {
-      animateTo({ duration: 300 }, () => {
+      ToastUtil.animateTo({ duration: 300 }, () => {
         this.eps.push(...res.eps.docs)
         if (page < res.eps.pages) {
           LogUtil.info(`递归加载所有章节：${page + 1}-${res.eps.pages}`)
@@ -496,11 +501,8 @@ export default struct ComicDetail {
 
   goToReader(chapter: number) {
     if (this.detail) {
-      HistoryUtil.add(this.detail)
-      this.pageStack.pushPathByName(
-        'ComicReader',
-        { comicId: this.detail._id, order: chapter } as ComicChapterInterface
-      )
+      console.log(`前往阅读 ${this.detail.title} 第${chapter}章`)
+      this.pageStack.pushPathByName('ComicReader', this.detail)
     }
   }
 
@@ -518,3 +520,48 @@ export default struct ComicDetail {
     return num
   }
 }
+
+export const emptyComicDetailInfo: ComicDetailInfo = {
+  _id: '',
+  title: '',
+  thumb: {
+    originalName: undefined, // 可选属性
+    path: '',
+    fileServer: '',
+  },
+  author: '',
+  categories: [],
+  finished: false,
+  epsCount: 0,
+  pagesCount: 0,
+  totalViews: 0,
+  totalLikes: 0,
+  _creator: {
+    _id: '',
+    gender: '',
+    name: '',
+    title: '',
+    slogan: '',
+    verified: false,
+    exp: 0,
+    level: 0,
+    characters: [],
+    role: '',
+    avatar: undefined, // 可选属性
+  },
+  description: '',
+  chineseTeam: '',
+  tags: [],
+  updated_at: '',
+  created_at: '',
+  allowDownload: false,
+  allowComment: false,
+  totalComments: 0,
+  viewsCount: 0,
+  likesCount: 0,
+  commentsCount: 0,
+  isFavourite: false,
+  isLiked: false,
+  lastReadOrder: 1,
+  lastReadIndex: 0,
+};

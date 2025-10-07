@@ -1,18 +1,13 @@
 import { LogUtil } from '@pura/harmony-utils';
-import { ComicResponse } from '../../api/comic';
-import { ComicDetailInfo, ComicSimpleInfo, SortType } from '../../api/models';
-import { favouriteAction } from '../../api/profile';
+import { ComicDetailInfo } from '../../api/models';
 import { StorageKey } from '../../common/Consts';
-import { HistoryUtil } from '../../utils/History';
 import { PreferenceStorageKey } from '../../utils/Preference';
-import ComicListItem from './ComicListItem';
-import { promptAction } from '@kit.ArkUI';
-import { ImageKnifeComponent } from '@ohos/imageknife';
 import { ComicCardInterface } from './ComicCard';
 import { ToastUtil } from '../../utils/ToastUtils';
 import { ConfigurationConstant } from '@kit.AbilityKit';
 import { BaseDataSource } from '../../common/BaseDataSource';
 import { HomeBannerBannerMargin, HomeBannerDisplayCount } from '../../utils/breakpoint/BreakPoint';
+import { ComicListAttribute } from './ComicList';
 
 @Component
 export default struct ComicBanner {
@@ -96,23 +91,8 @@ export default struct ComicBanner {
   }
 
   loadComics() {
-    if (this.attr.type === 'history') {
-      LogUtil.debug('Banner 加载浏览历史')
-      setTimeout(() => {
-        this.loadHistory()
-      }, 500)
-    } else if (this.attr.type === 'remote') {
-      LogUtil.debug('Banner 加载远程数据')
-      this.loadRemote()
-    }
-  }
-
-  loadHistory() {
-    ToastUtil.animateTo({ duration: 500 }, () => {
-      HistoryUtil.get().then(res => {
-        this.comics.pushData(res)
-      })
-    })
+    LogUtil.debug('Banner 加载远程数据')
+    this.loadRemote()
   }
 
   loadRemote() {
@@ -172,12 +152,4 @@ class BannerDataSource extends BaseDataSource<ComicDetailInfo> {
   public refresh(): void {
     this.notifyDataReload()
   }
-}
-
-export interface ComicListAttribute {
-  type: 'history' | 'remote',
-  api?: (page?: number, s?: SortType, p3?: string, p4?: string | string[]) => Promise<ComicResponse>
-  sort?: SortType
-  param1?: string
-  param2?: string | string[]
 }

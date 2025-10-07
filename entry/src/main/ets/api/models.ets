@@ -26,6 +26,8 @@ export interface ComicDetailInfo extends ComicSimpleInfo {
   commentsCount: number
   isFavourite: boolean // 是否收藏
   isLiked: boolean // 是否喜欢
+  lastReadOrder: number
+  lastReadIndex: number
 }
 
 export interface ComicEp {

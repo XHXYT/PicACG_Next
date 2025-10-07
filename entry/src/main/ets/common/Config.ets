@@ -40,6 +40,11 @@ enum AppChannel {
   Three = '3'
 }
 
+enum EventKey {
+  LoadHistory = 10001,
+
+}
+
 interface LocalCategory {
   title: string
   img: ResourceStr
@@ -120,5 +125,6 @@ export {
   LocalCategories,
   CategoryFilter,
   LocalCategory,
-  SortItems
+  SortItems,
+  EventKey
 }

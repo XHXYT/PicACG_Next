@@ -1,7 +1,6 @@
 import { extractUpdateInfo, getUpdateInfo, UpdateInfo } from '../../utils/CheckUpdate'
 import SettingsList from '../component/SettingsList'
 import { SettingsTitleBar } from '../component/TitleBar'
-import { promptAction } from '@kit.ArkUI'
 import { hilog } from '@kit.PerformanceAnalysisKit'
 import { PreferenceStorageKey } from '../../utils/Preference'
 import { GoToWeb } from '../../utils/GoWeb'

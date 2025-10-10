@@ -32,9 +32,9 @@ export default struct ComicList {
   deleteOperate?: (comic: ComicSimpleInfo, comics: ComicDetailInfo[]) => void = undefined
 
   aboutToAppear(): void {
-    EventHub.on<EventKey>(EventKey.LoadHistory, () => {
-      this.attr.type = 'history'
-      this.isRefreshing = true
+    EventHub.on<EventKey>(EventKey.LoadHistory, (id: string) => {
+      console.log(`删除${id}, comics: ${this.comics.length} 个`)
+      console.log(`删除${id}, comics变成: ${this.comics.length} 个`)
     })
   }
 

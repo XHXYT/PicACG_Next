@@ -174,9 +174,6 @@ export default struct Home {
       })
       .onAnimationStart((index, targetIndex, extraInfo) => {
         this.tabController4.swiperOnAnimationStart(index, targetIndex, extraInfo)
-        if (targetIndex === 0) {
-          EventHub.sendEvent<EventKey>(EventKey.LoadHistory)
-        }
       })
     }.backgroundColor($r('app.color.start_window_background'))
     .height('100%')
@@ -228,7 +225,7 @@ export default struct Home {
   deleteHistory(comic: ComicSimpleInfo) {
     HistoryUtil.deleteSingle(comic._id).then((value) => {
       if (value) {
-        EventHub.sendEvent<EventKey>(EventKey.LoadHistory)
+        EventHub.sendEvent<EventKey>(EventKey.LoadHistory, comic._id)
         ToastUtil.showToast({ message: `已删除 ${comic.title}`});
       }
     })

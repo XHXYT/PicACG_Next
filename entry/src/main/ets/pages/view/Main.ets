@@ -9,6 +9,7 @@ import { TimeType } from '../../api/models'
 import { LengthMetrics } from '@kit.ArkUI'
 import ComicBanner from '../component/ComicBanner'
 import { BreakpointState } from '../../utils/BreakPoint'
+import { ToastUtil } from '../../utils/ToastUtils'
 
 /**
  * 主界面
@@ -18,9 +19,14 @@ export default struct Main {
 
   @StorageProp(PreferenceStorageKey.PRIVACY_MODE) privacyMode: boolean = false
   @StorageProp(PreferenceStorageKey.IMAGE_API) imageApi: string = ''
+  // 随机推荐
   @State random: ComicCardInterface[] = []
+  // 随机本子
   @State recommend: ComicCardInterface[] = []
+  // 本子妹推荐
   @State collections: ComicCardInterface[] = []
+  // 月度排行榜
+  @State monthlyLeaderboard: ComicCardInterface[] = []
   @State currentIndex: number = 0
   @State private currentBreakpoint: string = 'md'
   @State animationDuration: number = 300
@@ -30,7 +36,7 @@ export default struct Main {
 
   aboutToAppear() {
     // 加载本子妹推荐
-    // this.loadCollection()
+    this.loadCollection()
     // 加载随机推荐
     this.loadRecommend()
     // 加载随机本子
@@ -76,19 +82,15 @@ export default struct Main {
       }
       ListItem() {
         // 本子妹推荐区
-        /*GridCol({
-          span: {sm: 12, md: deviceInfo.deviceType === 'phone' ? 6 : 12, lg: 6},
-          order: 3
-        }) {
-          Column({space: 10}) {
+        Column({space: 5}) {
+          Column({space: 7}) {
             Text('本子妹推荐')
               .width('100%')
-            ComicCardScroll({ comics: this.recommend, })
+            ComicCardScroll({ comics: this.collections, })
           }.width('100%')
-          // .height((this.currentBreakpoint === 'md' && deviceInfo.deviceType !== 'phone') ? '40%' : '100%')
-          .justifyContent(FlexAlign.Center)
+          .justifyContent(FlexAlign.SpaceAround)
           .alignItems(HorizontalAlign.Center)
-        }.borderWidth(2).borderColor(Color.Green)*/
+        }
       }
     }
     .alignListItem(ListItemAlign.Start)
@@ -134,7 +136,7 @@ export default struct Main {
   // 加载随机推荐
   loadRecommend() {
     otherRecommend().then(res => {
-      animateTo({ duration: 300 }, () => {
+      ToastUtil.animateTo({ duration: 300 }, () => {
         res.forEach((comic) => {
           this.recommend.push({
             id: comic.id,
@@ -145,15 +147,14 @@ export default struct Main {
       })
       LogUtil.info(`随机推荐: ${res.length}`)
     }).catch((err: Error) => {
-      LogUtil.error(`错误: ${err.message}`)
-      LogUtil.error(err.stack)
+      LogUtil.error(`随即推荐加载错误: ${err.message}`)
     })
   }
 
   // 加载随机本子
   loadRandom() {
     random().then(res => {
-      animateTo({ duration: 300 }, () => {
+      ToastUtil.animateTo({ duration: 300 }, () => {
         res.comics.forEach((comic) => {
           this.random.push({
             id: comic._id,
@@ -163,8 +164,7 @@ export default struct Main {
         })
       })
     }).catch((err: Error) => {
-      LogUtil.error(`错误: ${err.message}`)
-      LogUtil.error(err.stack)
+      LogUtil.error(`随即本子加载错误message: ${err.message}`)
     })
   }
 
@@ -173,7 +173,7 @@ export default struct Main {
     collections().then(res => {
       res.collections.forEach((collection) => {
         LogUtil.info(`${collection.title}: ${collection.comics.length}`)
-        animateTo({ duration: 300 }, () => {
+        ToastUtil.animateTo({ duration: 300 }, () => {
           collection.comics.forEach((comic) => {
             this.collections.push({
               id: comic._id,
@@ -184,8 +184,7 @@ export default struct Main {
         })
       })
     }).catch((err: Error) => {
-      LogUtil.error(`错误: ${err.message}`)
-      LogUtil.error(err.stack)
+      LogUtil.error(`本子妹推荐加载错误: ${err.message}`)
     })
   }
 

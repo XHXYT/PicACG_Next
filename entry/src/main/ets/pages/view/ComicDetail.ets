@@ -501,6 +501,10 @@ export default struct ComicDetail {
 
   goToReader(chapter: number) {
     if (this.detail) {
+      if (!this.detail.lastReadOrder) {
+        console.log(`为新书不存在已阅读章节`)
+        this.detail.lastReadOrder = 1
+      }
       console.log(`前往阅读 ${this.detail.title} 第${chapter}章`)
       this.pageStack.pushPathByName('ComicReader', this.detail)
     }

@@ -156,8 +156,8 @@ export class HistoryUtil {
         (_id, title, thumb, author, categories, finished, epsCount, pagesCount, totalViews, totalLikes,
          creator_name, creator_id, description, chineseTeam, tags, updated_at, created_at,
          allowDownload, allowComment, totalComments, viewsCount, likesCount, commentsCount,
-         isFavourite, isLiked, browseTime, lastReadTime, lastReadOrder)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         isFavourite, isLiked, browseTime, lastReadTime)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `;
 
         await HistoryUtil.rdbStore.executeSql(insertSql, [
@@ -188,7 +188,6 @@ export class HistoryUtil {
           comic.isLiked ? 1 : 0,
           currentTime, // browseTime
           0, // lastReadTime 初始为0
-          comic.lastReadOrder || 1, // 使用传入的值或默认1
         ]);
 
         LogUtil.info(`插入新的历史记录ID: ${comic._id}, lastReadOrder: ${comic.lastReadOrder}`);

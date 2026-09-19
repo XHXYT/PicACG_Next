@@ -7,7 +7,7 @@ import { BusinessError } from '@ohos.base';
 
 export class HistoryUtil {
   private static readonly DB_NAME: string = 'comic_history.db';
-  private static readonly DB_VERSION: number = 1;
+  private static readonly DB_VERSION: number = 2;
   private static readonly TABLE_COMIC_HISTORY: string = 'COMIC_HISTORY';
 
   private static rdbStore: relationalStore.RdbStore;
@@ -51,7 +51,8 @@ export class HistoryUtil {
       browseTime INTEGER DEFAULT 0,
       lastReadTime INTEGER DEFAULT 0,
       lastReadOrder INTEGER DEFAULT 0,
-      lastReadIndex INTEGER DEFAULT 0
+      lastReadIndex INTEGER DEFAULT 0,
+      isRead INTEGER DEFAULT 0
     )
   `;
 
@@ -78,6 +79,20 @@ export class HistoryUtil {
           // 创建数据表
           await HistoryUtil.rdbStore.executeSql(HistoryUtil.SQL_CREATE_TABLE);
           LogUtil.info('Comic history table created successfully.');
+
+          // 版本迁移：v2 新增 isRead 字段区分浏览/阅读记录
+          if (HistoryUtil.rdbStore.version < HistoryUtil.DB_VERSION) {
+            try {
+              await HistoryUtil.rdbStore.executeSql(
+                `ALTER TABLE ${HistoryUtil.TABLE_COMIC_HISTORY} ADD COLUMN isRead INTEGER DEFAULT 0`
+              );
+            } catch (e) {
+              // 全新安装时建表语句已包含 isRead，重复加列报错可忽略
+              LogUtil.warn('Add column isRead skipped, column may already exist');
+            }
+            HistoryUtil.rdbStore.version = HistoryUtil.DB_VERSION;
+            LogUtil.info(`Comic history DB migrated to version ${HistoryUtil.DB_VERSION}`);
+          }
 
           HistoryUtil.isInitialized = true;
           resolve(true);
@@ -112,8 +127,7 @@ export class HistoryUtil {
             pagesCount = ?, totalViews = ?, totalLikes = ?, creator_name = ?, creator_id = ?,
             description = ?, chineseTeam = ?, tags = ?, updated_at = ?, created_at = ?,
             allowDownload = ?, allowComment = ?, totalComments = ?, viewsCount = ?,
-            likesCount = ?, commentsCount = ?, isFavourite = ?, isLiked = ?, browseTime = ?,
-            lastReadTime = ?, lastReadOrder = ?
+            likesCount = ?, commentsCount = ?, isFavourite = ?, isLiked = ?, browseTime = ?
         WHERE _id = ?
       `;
 
@@ -143,8 +157,6 @@ export class HistoryUtil {
           comic.isFavourite ? 1 : 0,
           comic.isLiked ? 1 : 0,
           currentTime, // browseTime
-          currentTime, // lastReadTime
-          comic.lastReadOrder,
           comic._id
         ]);
 
@@ -314,6 +326,55 @@ export class HistoryUtil {
   }
 
   /**
+   * 获取阅读记录列表（isRead = 1，按最近阅读时间倒序）
+   */
+  public static async getReading(): Promise<ComicDetailInfo[]> {
+    if (!await HistoryUtil.ensureInitialized()) {
+      return [];
+    }
+
+    return new Promise<ComicDetailInfo[]>((resolve) => {
+      const predicates = new relationalStore.RdbPredicates(HistoryUtil.TABLE_COMIC_HISTORY);
+      predicates.equalTo('isRead', 1).orderByDesc('lastReadTime');
+
+      const columns = [
+        '_id', 'title', 'thumb', 'author', 'categories', 'finished', 'epsCount', 'pagesCount',
+        'totalViews', 'totalLikes', 'creator_name', 'creator_id', 'description', 'chineseTeam',
+        'tags', 'updated_at', 'created_at', 'allowDownload', 'allowComment', 'totalComments',
+        'viewsCount', 'likesCount', 'commentsCount', 'isFavourite', 'isLiked',
+        'lastReadOrder', 'lastReadIndex'
+      ];
+
+      HistoryUtil.rdbStore.query(predicates, columns, (err: BusinessError, resultSet: relationalStore.ResultSet) => {
+        if (err) {
+          LogUtil.error(`Failed to query reading history. Code:${err.code}, message:${err.message}`);
+          resolve([]);
+          return;
+        }
+
+        const comics: ComicDetailInfo[] = [];
+        try {
+          while (resultSet.goToNextRow()) {
+            try {
+              const comicInfo = HistoryUtil.resultSetToComicDetailInfo(resultSet);
+              comics.push(comicInfo);
+            } catch (parseError) {
+              LogUtil.warn('Failed to parse comic data:', JSON.stringify(parseError));
+            }
+          }
+          LogUtil.info(`查询阅读记录成功, count: ${comics.length}`);
+        } catch (e) {
+          LogUtil.error('Error processing reading history result set:', JSON.stringify(e));
+        } finally {
+          resultSet.close();
+        }
+
+        resolve(comics);
+      });
+    });
+  }
+
+  /**
    * 根据漫画ID获取阅读章节
    */
   public static async getRead(comicId: string): Promise<number> {
@@ -407,10 +468,10 @@ export class HistoryUtil {
     const currentTime = new Date().getTime();
 
     try {
-      // 使用 UPDATE 语句更新阅读进度
+      // 使用 UPDATE 语句更新阅读进度，并标记为已阅读
       const updateSql = `
         UPDATE ${HistoryUtil.TABLE_COMIC_HISTORY}
-        SET lastReadOrder = ?, lastReadIndex = ?, lastReadTime = ?
+        SET lastReadOrder = ?, lastReadIndex = ?, lastReadTime = ?, isRead = 1
         WHERE _id = ?
       `;
       LogUtil.info(`将保存的阅读进度 for ${comicId}: ${order},${index}`);

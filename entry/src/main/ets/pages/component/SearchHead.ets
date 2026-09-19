@@ -1,23 +1,21 @@
 import { keywords } from '../../api/comic';
-import { StorageKey } from '../../common/Consts';
 import { LengthUnit, router } from '@kit.ArkUI';
 import { RandomUtil } from '@pura/harmony-utils';
 import { SettingsPage } from '../Settings';
+import { PicState } from '../../entryability/AppState';
 
-@Component
+
+@ComponentV2
 export default struct SearchHead {
-  // 背景模糊
-  @StorageLink('foregroundBlur') foregroundBlurMode: boolean = false
-  @StorageLink(StorageKey.KEYWORDS) keywords: string[] = []
-  @Link @Watch('onRefreshKeyword') refreshKeyword: boolean
-  @Consume('pageStack') pageStack: NavPathStack;
-  @State isShowSettings: boolean = false
-  @State showKey: string = ''
+
+  @Param @Require refreshKeyword: boolean
+  @Local isShowSettings: boolean = false
+  @Local showKey: string = ''
 
   aboutToAppear(): void {
-    if (this.keywords.length === 0) {
+    if (PicState.keywords.length === 0) {
       keywords().then(res => {
-        this.keywords = res.keywords
+        PicState.keywords = res.keywords
         this.changeShowKey()
       })
     } else {
@@ -30,8 +28,8 @@ export default struct SearchHead {
   }
 
   changeShowKey() {
-    if (this.keywords.length !== 0) {
-      this.showKey = this.keywords[RandomUtil.getRandomNumber(0, this.keywords.length)]
+    if (PicState.keywords.length !== 0) {
+      this.showKey = PicState.keywords[RandomUtil.getRandomNumber(0, PicState.keywords.length)]
     }
   }
 
@@ -58,7 +56,7 @@ export default struct SearchHead {
       .borderRadius(50)
       .borderColor($r('app.color.custom_gray'))
       .onClick(() => {
-        this.pageStack.pushPath({ name: 'ComicSearch' })
+        PicState.pageStack.pushPath({ name: 'comic_search' })
       })
 
       Row() {
@@ -75,10 +73,10 @@ export default struct SearchHead {
         .clickEffect({ level: ClickEffectLevel.LIGHT, scale: 0.8 })
         .onClick(() => {
           this.isShowSettings = true
-          this.foregroundBlurMode = true
+          PicState.foregroundBlurMode = true
         })
-        .bindSheet($$this.isShowSettings, SettingsPage(), {
-          detents: [SheetSize.LARGE],
+        .bindSheet(this.isShowSettings!!, SettingsPage(), {
+          height: 650,
           dragBar: false,
           backgroundColor: $r('app.color.start_window_background'),
           keyboardAvoidMode: SheetKeyboardAvoidMode.RESIZE_ONLY,
@@ -86,7 +84,7 @@ export default struct SearchHead {
           preferType: SheetType.CENTER,
           onWillDismiss: () => {
             // 开启背景模糊
-            this.foregroundBlurMode = false
+            PicState.foregroundBlurMode = false
             // 打开设置
             this.isShowSettings = false
           },
@@ -108,4 +106,5 @@ export default struct SearchHead {
     })
     .borderColor($r('app.color.custom_gray'))
   }
+
 }

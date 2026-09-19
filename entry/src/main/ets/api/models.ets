@@ -40,7 +40,7 @@ export interface ComicEp {
 
 export interface Thumb {
   originalName?: string // 文件名
-  path: ResourceStr // 文件路径
+  path: string // 文件路径
   fileServer: string // 文件服务
 }
 

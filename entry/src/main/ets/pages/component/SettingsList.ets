@@ -1,14 +1,14 @@
-import { PreferenceItem } from "../../utils/Preference"
 import { SymbolGlyphModifier } from "@kit.ArkUI"
+import { PreferenceItem, SettingsItemAttribute } from "../../common/Model"
 
-@Component
+@ComponentV2
 export default struct SettingsList {
 
-  @Prop group: Array<SettingsItemAttribute[]>
-  @State currentItem?: SettingsItemAttribute = undefined
-  @State menuSelected: string = ''
-  @State menus: PreferenceItem[] = []
-  @State isShowMenu: boolean = false
+  @Param @Require group: Array<SettingsItemAttribute[]>
+  @Local currentItem?: SettingsItemAttribute = undefined
+  @Local menuSelected: string = ''
+  @Local menus: PreferenceItem[] = []
+  @Local isShowMenu: boolean = false
 
   build() {
     Column({ space: 10}) {
@@ -22,21 +22,26 @@ export default struct SettingsList {
                   .height(48)
                   .borderRadius(100)
               }
-              // 标题
+              // 标题（占满剩余空间，文本超长时省略号截断，不影响右侧箭头）
               Column({space: 2}) {
                 Text(item.name)
                   .fontWeight(FontWeight.Medium)
                   .fontSize(16)
+                  .maxLines(1)
+                  .textOverflow({ overflow: TextOverflow.Ellipsis })
                 if(item.subtitle) {
                   Text(item.subtitle)
                     .fontWeight(FontWeight.Normal)
                     .fontColor($r('app.color.common_button_background_light'))
                     .fontSize(14)
+                    .maxLines(1)
+                    .textOverflow({ overflow: TextOverflow.Ellipsis })
                 }
               }
               .constraintSize({minHeight: 49})
               .justifyContent(FlexAlign.Center)
               .alignItems(HorizontalAlign.Start)
+              .layoutWeight(1)
               Blank()
               if (item.type === 'Switch') {
                 Toggle({ type: ToggleType.Switch, isOn: item.switchVal })
@@ -77,6 +82,14 @@ export default struct SettingsList {
               console.log(`SettingsList 已点击 ${item.name}`)
               if (item.onClick) {
                 item.onClick()
+              }
+
+              // 开关形态：switchByRow 为 true 时点击整行启闭开关，走 onChange 由数据源驱动 Toggle 状态
+              if (item.type === 'Switch') {
+                if (item.switchByRow && item.onChange) {
+                  item.onChange(!item.switchVal)
+                }
+                return
               }
 
               const itemName = item.name || '未知项目';
@@ -133,18 +146,4 @@ export default struct SettingsList {
     }
   }
 
-}
-
-export interface SettingsItemAttribute {
-  image?: Resource
-  name: string,
-  subtitle?: string
-  menus?: PreferenceItem[]
-  tips?: string,
-  type?: 'Normal' | 'Switch' | 'Tips' | 'Menu'
-  onClick?: () => void
-  menuValue?: string
-  switchVal?: boolean
-  onValueChange?: (value: number | string) => void
-  onChange?: (isOn: boolean) => void
 }

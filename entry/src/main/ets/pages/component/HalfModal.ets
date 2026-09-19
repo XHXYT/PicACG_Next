@@ -1,7 +1,7 @@
-@Component
+@ComponentV2
 export default struct HalfModal {
-  @Link show: boolean
-  @Prop options: SheetOptions
+  @Param @Require show: boolean
+  @Param @Require options: SheetOptions
   @BuilderParam view: () => void
 
   build() {

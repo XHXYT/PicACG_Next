@@ -1,34 +1,59 @@
 {
   "routerMap": [
     {
-      "name": "ComicDetail",
+      "name": "comic_detail",
       "pageSourceFile": "src/main/ets/pages/view/ComicDetail.ets",
       "buildFunction": "ComicDetailBuilder"
     },
     {
-      "name": "ComicReader",
+      "name": "comic_reader",
       "pageSourceFile": "src/main/ets/pages/view/ComicReader.ets",
       "buildFunction": "ComicReaderBuilder"
     },
     {
-      "name": "Comics",
+      "name": "comics",
       "pageSourceFile": "src/main/ets/pages/view/Comics.ets",
       "buildFunction": "ComicsBuilder"
     },
     {
-      "name": "ComicSearch",
+      "name": "comic_search",
       "pageSourceFile": "src/main/ets/pages/view/ComicSearch.ets",
       "buildFunction": "ComicSearchBuilder"
     },
     {
-      "name": "Leaderboard",
+      "name": "leaderboard",
       "pageSourceFile": "src/main/ets/pages/view/Leaderboard.ets",
       "buildFunction": "LeaderboardBuilder"
     },
     {
-      "name": "Comments",
+      "name": "comments",
       "pageSourceFile": "src/main/ets/pages/view/Comments.ets",
       "buildFunction": "CommentsBuilder"
+    },
+    {
+      "name": "about",
+      "pageSourceFile": "src/main/ets/pages/view/About.ets",
+      "buildFunction": "AboutBuilder"
+    },
+    {
+      "name": "about_app",
+      "pageSourceFile": "src/main/ets/pages/view/About.ets",
+      "buildFunction": "AboutAppBuilder"
+    },
+    {
+      "name": "check_update",
+      "pageSourceFile": "src/main/ets/pages/view/About.ets",
+      "buildFunction": "CheckUpdateBuilder"
+    },
+    {
+      "name": "account_login",
+      "pageSourceFile": "src/main/ets/pages/view/AccountLogin.ets",
+      "buildFunction": "AccountLoginBuilder"
+    },
+    {
+      "name": "account_manage",
+      "pageSourceFile": "src/main/ets/pages/view/AccountManage.ets",
+      "buildFunction": "AccountManageBuilder"
     }
   ]
 }

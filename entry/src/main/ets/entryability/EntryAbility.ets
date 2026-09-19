@@ -1,222 +1,262 @@
-import { AbilityConstant, UIAbility, Want } from '@kit.AbilityKit'
-import { hilog } from '@kit.PerformanceAnalysisKit'
-import { window } from '@kit.ArkUI'
-import { BusinessError } from '@ohos.base'
-import { AppUtil, LogUtil } from '@pura/harmony-utils'
-import { StorageKey } from '../common/Consts'
-import { PreferenceManager, PreferenceStorageKey } from '../utils/Preference'
-import { ImageKnife } from '@ohos/imageknife'
-import { HistoryUtil } from '../utils/History'
-import { ToastUtil } from '../utils/ToastUtils'
-import { ColorModeManager } from '../utils/ColorModeManager'
+import { AbilityConstant, common, Configuration, UIAbility, Want } from '@kit.AbilityKit';
+import { window } from '@kit.ArkUI';
+import { bundleManager } from "@kit.AbilityKit";
+import { createLogger } from '../utils/Logger';
+import { AvoidanceManager, SmartAvoidance } from '../utils/AvoidManager';
+import { PicState, _PicState } from './AppState';
+import { ToastUtil } from '../utils/ToastUtils';
+import { Animation } from '../utils/AnimationUtil';
+import { PreferenceUtil } from '../utils/preference/PreferenceUtil';
+import { KVDbUtil } from '../utils/preference/KVdbUtil';
+import { PreferenceManager } from '../utils/preference/Settings';
+import { ImageKnife } from '@ohos/imageknifepro';
+import { HttpUtil } from '../utils/Http';
+import { StorageKey } from '../common/Consts';
+import { accountVM } from '../viewmodel/AccountViewModel';
+
+
+const logger = createLogger('EntryAbility')
+// 断点比例常量
+const BREAKPOINT_RATIO_LANDSCAPE = 0.79;
+const BREAKPOINT_RATIO_PORTRAIT = 1.2;
 
 export default class EntryAbility extends UIAbility {
+  private isFirstStart: boolean = true
+  private avoidManager: AvoidanceManager | undefined = undefined;
 
-  private uiContext?: UIContext;
-  // 设备断点获取
-  private onWindowSizeChange: (windowSize: window.Size) => void = (windowSize: window.Size) => {
-    let widthBp: WidthBreakpoint = this.uiContext!.getWindowWidthBreakpoint();
-    AppStorage.setOrCreate('currentWidthBreakpoint', widthBp);
-    console.log(`断点测试 widthBp: ${widthBp}`)
-  };
+  // 避让区域变化监听器 - 同步数据到全局变量 PicState
+  private avoidListener: (avoidance: SmartAvoidance) => void = (newAvoidance) => {
+    PicState.bottomRectHeight = newAvoidance.bottom
+    PicState.topRectHeight = newAvoidance.top
+    PicState.leftAvoidWidth = newAvoidance.left
+    PicState.rightAvoidWidth = newAvoidance.right
+  }
 
-  async onCreate(want: Want, launchParam: AbilityConstant.LaunchParam) {
-    hilog.info(0x0000, 'PicaAbilityLog', '%{public}s', 'Ability onCreate')
-    AppUtil.init(this.context)
-    LogUtil.init(0x0000, 'PicaLog', true)
-    await HistoryUtil.init()
-    await ImageKnife.getInstance().initFileCache(this.context, 256, 256 * 1024 * 1024)
+  // --- 生命周期 ---
+  async onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): Promise<void> {
+    try {
+      await this.initAppEnvironment();
+      await this.initAppStateAndAuth();
+      logger.info('Init', 'App environment and state initialized successfully.');
+    } catch (error) {
+      logger.error(`Init`, `Initialization failed, ${error}`);
+    }
   }
 
   onDestroy(): void {
-    hilog.info(0x0000, 'PicaAbilityLog', '%{public}s', 'Ability onDestroy')
+    logger.info('Lifecycle', 'EntryAbility onDestroy');
   }
 
   onWindowStageCreate(windowStage: window.WindowStage): void {
-    // Main window is created, set main page for this ability
-    hilog.info(0x0000, 'PicaAbilityLog', '%{public}s', 'Ability onWindowStageCreate')
-
-    let loadPage: string = 'pages/Login'
-    hilog.info(0x0000, 'PicaAbilityTokenLog', 'token: %{public}s', AppStorage.get<string>(StorageKey.TOKEN))
-
-    windowStage.loadContent('pages/Login', (err) => {
+    logger.info('Lifecycle', 'EntryAbility onWindowStageCreate');
+    const initialUrl = PicState.token !== '' ? 'pages/Index' : 'pages/Login';
+    windowStage.loadContent('pages/Index', async (err) => {
       if (err.code) {
-        hilog.error(0x0000, 'PicaAbilityLog', 'Failed to load the content. Cause: %{public}s',
-          JSON.stringify(err) ?? '')
-        return
+        logger.error(`WindowStage`, `Failed to load the content., ${err}`)
+        return;
       }
-      hilog.info(0x0000, 'PicaAbilityLog', 'Succeeded in loading the content.')
-      // 初始化变量
-      PersistentStorage.persistProp(StorageKey.TOKEN, '')
-      PersistentStorage.persistProp(StorageKey.HISTORY, [])
-      PersistentStorage.persistProp(StorageKey.SEARCH_HISTORY, [])
-      PersistentStorage.persistProp(StorageKey.FILTER_CATEGORY, [])
-      PreferenceManager.init()
-      ColorModeManager.switchColorMode(this.context, AppStorage.get<string>(PreferenceStorageKey.Color_MODE)!)
-    })
-
-    windowStage.getMainWindow((err, windowClass) => {
-      if (err.code) {
-        hilog.error(0x0000, 'PicaAbilityLog', 'Failed to load the content. Cause: %{public}s',
-          JSON.stringify(err) ?? '')
-        return
-      }
-
-      // 全屏
-      windowClass.setWindowLayoutFullScreen(true)
-        .then(() => {
-          LogUtil.info('已成功将窗口布局设置为全屏模式')
-        })
-        .catch((err: BusinessError) => {
-          LogUtil.error('无法将窗口布局设置为全屏模式 Cause:' + JSON.stringify(err))
-        })
-    })
-
-    windowStage.getMainWindow(async (err, data) => {
-      // 全屏
-      data.setWindowLayoutFullScreen(true)
-        .then(() => {
-          console.info('已成功将窗口布局设置为全屏模式')
-        })
-        .catch((err: BusinessError) => {
-          console.error('无法将窗口布局设置为全屏模式 Cause:' + JSON.stringify(err))
-        })
-
       try {
-        const UIContext = data.getUIContext()
-        this.uiContext = UIContext
-        AppStorage.setOrCreate('UIContext', UIContext)
-        // 初始化通知
-        ToastUtil.initContext(UIContext)
-        // 设备宽度断点获取
-        const widthBp: WidthBreakpoint = UIContext.getWindowWidthBreakpoint()
-        AppStorage.setOrCreate('currentWidthBreakpoint', widthBp)
-        data.on('windowSizeChange', this.onWindowSizeChange)
-        // 初始化窗口
-        this.intRectWindow(windowStage)
+        const data = await windowStage.getMainWindow()
+        // 存储初始化UI上下文 (静态属性赋值)
+        _PicState.UIContext = data.getUIContext()
+        // 初始化工具类
+        ToastUtil.initContext(_PicState.UIContext, _PicState.UIContext.getHostContext() as common.UIAbilityContext)
+        Animation.init(_PicState.UIContext)
+        // 初始化窗口与UI管理
+        this.intRectWindow(windowStage, _PicState.UIContext)
       } catch (error) {
-        console.error(`UI上下文获取失败，code: ${error.code} message: ${error.messsage}`)
+        logger.error(`WindowStage`, `Failed to get the Main Window, ${error}`)
       }
+      logger.info('WindowStage', 'Succeeded in loading the content.');
+    });
+  }
 
-    })
+  onConfigurationUpdate(newConfig: Configuration): void {
+  }
 
+  onWindowStageWillDestroy(windowStage: window.WindowStage): void {
+    if (this.avoidManager) {
+      this.avoidManager.offChangeListener(this.avoidListener);
+      this.avoidManager.destroy();
+      this.avoidManager = undefined;
+    }
+    logger.info('Lifecycle', 'EntryAbility onWindowStageWillDestroy');
   }
 
   onWindowStageDestroy(): void {
-    // Main window is destroyed, release UI related resources
-    hilog.info(0x0000, 'PicaAbilityLog', '%{public}s', 'Ability onWindowStageDestroy')
+    logger.info('Lifecycle', 'EntryAbility onWindowStageDestroy');
   }
 
   onForeground(): void {
-    // Ability has brought to foreground
-    hilog.info(0x0000, 'PicaAbilityLog', '%{public}s', 'Ability onForeground')
+    logger.info('Lifecycle', 'EntryAbility onForeground');
   }
 
   onBackground(): void {
-    // Ability has back to background
-    hilog.info(0x0000, 'PicaAbilityLog', '%{public}s', 'Ability onBackground')
+    logger.info('Lifecycle', 'EntryAbility onBackground');
   }
 
-  private intRectWindow(windowStage: window.WindowStage) {
-    // 获取应用主窗口
+  // --- 核心初始化逻辑 ---
+  private async initAppEnvironment() {
+    _PicState.Context = this.context
+    await PreferenceUtil.init(this.context, 'picacg_preference');
+    await KVDbUtil.initKVManager(this.context, 'picacg')
+    await PreferenceManager.load()
+    await ImageKnife.getInstance().initFileCache(this.context, 256, 256 * 1024 * 1024);
+    // 哔咔图片服务（storage-b）会拦截非客户端 UA（403），统一使用官方 App 的 okhttp UA
+    ImageKnife.getInstance().addHeader('user-agent', 'okhttp/3.8.1');
+    this.initAppVersion()
+  }
+
+  private async initAppStateAndAuth() {
+    await this.initAccounts()
+
+  }
+
+  private async initAccounts() {
+    const savedToken = await KVDbUtil.getData<string>(StorageKey.TOKEN, '');
+    if (savedToken) {
+      PicState.token = savedToken;
+    }
+    // 恢复已保存的账号列表与当前账号标记
+    await accountVM.load();
+  }
+
+  private async initAppVersion() {
+    const packageInfo = await bundleManager.getBundleInfoForSelf(bundleManager.BundleFlag.GET_BUNDLE_INFO_WITH_APPLICATION)
+    PicState.appVersion = packageInfo.versionName
+  }
+
+  // --- 窗口与UI管理 ---
+  /**
+   * 初始化窗口
+   * 参照项目一的结构：全屏设置 -> 避让区域 -> 尺寸初始化 -> 监听注册
+   */
+  async intRectWindow(windowStage: window.WindowStage, UIContext: UIContext) {
+    // 设置窗口尺寸自动保存 (2in1设备)
     try {
-      const windowClass: window.Window = windowStage.getMainWindowSync()
-      // 设置窗口全屏
-      windowClass.setWindowLayoutFullScreen(true).then(() => {
-        console.info('Succeeded in setting the window layout to full-screen mode.');
-      }).catch((err: BusinessError) => {
-        console.error('Failed to set the window layout to full-screen mode. Cause:' + JSON.stringify(err));
-      });
-
-      // 缓存window窗口对象
-      AppStorage.setOrCreate('WindowClass', windowClass)
-      console.info('Succeeded in 保存窗口对象.');
-
-      // 获取布局避让遮挡的区域
-      // 获取导航栏遮挡区域
-      const bottomType = window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR
-      try {
-        const avoidArea = windowClass.getWindowAvoidArea(bottomType)
-        const bottomRectHeight = avoidArea.bottomRect.height
-        AppStorage.setOrCreate('bottomRectHeight', px2vp(bottomRectHeight))
-        hilog.info(0x0000, 'EntryAbility', '导航栏初始避让高度 Top：%{public}d Bottom: %{public}i', bottomRectHeight);
-      } catch (error) {
-        console.error(`导航栏避让获取失败，code: ${error.code} message: ${error.messsage}`)
-      }
-
-      // 获取状态栏避让遮挡的区域
-      const topType = window.AvoidAreaType.TYPE_SYSTEM // 状态栏
-      try {
-        const topAvoidArea = windowClass.getWindowAvoidArea(topType)
-        const topRectHeight = topAvoidArea.topRect.height
-        AppStorage.setOrCreate('topRectHeight', this.uiContext?.px2vp(topRectHeight))
-        hilog.info(0x0000, 'EntryAbility', '状态栏初始避让高度 Top：%{public}d Bottom: %{public}i', topRectHeight)
-      } catch (error) {
-        console.error(`状态栏避让获取失败，code: ${error.code} message: ${error.messsage}`)
-      }
-
-      // 注册监听函数，动态获取避让区域数据
-      windowClass.on('avoidAreaChange', (data) => {
-        let topRectActiveHeight = 0
-        let bottomRectActiveHeight = 0
-        if (data.type === window.AvoidAreaType.TYPE_SYSTEM) {
-          topRectActiveHeight = data.area.topRect.height;
-          AppStorage.setOrCreate('topRectHeight', this.uiContext?.px2vp(topRectActiveHeight));
-        } else if (data.type == window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR) {
-          bottomRectActiveHeight = this.uiContext?.px2vp(data.area.bottomRect.height)!;
-          AppStorage.setOrCreate('bottomRectHeight', bottomRectActiveHeight);
-        }
-        hilog.info(0x0000, 'EntryAbility', '动态避让高度 Top：%{public}d Bottom: %{public}i', topRectActiveHeight, bottomRectActiveHeight);
-      });
-
-      // 应用窗口初始高度和宽度
-      try {
-        const properties = windowClass.getWindowProperties()
-        const rect = properties.windowRect
-        let WindowHeight = this.uiContext?.px2vp(rect.height)
-        let WindowWidth = this.uiContext?.px2vp(rect.width)
-        hilog.info(0x0000, 'Pica WindowLog', '窗口高度：%{public}d px 宽度：%{public}i px', rect.height, rect.width)
-        AppStorage.setOrCreate('WindowHeight', WindowHeight)
-        AppStorage.setOrCreate('WindowWidth', WindowWidth)
-        // 监听窗口大小变化
-        try {
-          windowClass.on('windowSizeChange', async (data) => {
-            console.info('#WindowChange Succeeded in enabling the listener for window size changes. Data: ' +
-            JSON.stringify(data))
-            WindowWidth = this.uiContext?.px2vp(data.width)!
-            WindowHeight = this.uiContext?.px2vp(data.height)!
-            AppStorage.setOrCreate('windowWidth', WindowWidth)
-            AppStorage.setOrCreate('windowHeight', WindowHeight) // 980px 约等于 512vp
-            // 动态监听高度断点
-            this.onHeightBpChange(WindowHeight, WindowWidth)
-          })
-        } catch (exception) {
-          console.error(`#EntryAbility Failed to enable the listener for window size changes. Cause code: ${exception.code}, message: ${exception.message}`)
-        }
-      } catch (error) {
-        console.error(`窗口大小获取失败，code: ${error.code} message: ${error.messsage}`)
-      }
-    } catch (error) {
-      console.error(`窗口对象获取失败，code: ${error.code} message: ${error.messsage}`)
+      await windowStage.setWindowRectAutoSave(true);
+      logger.info("WindowAutoSave", 'Succeeded in setting window rect auto-save')
+    } catch (exception) {
+      logger.error("WindowAutoSave", `Failed. Code: ${exception.code}, Message: ${exception.message}`)
     }
 
+    try {
+      const windowClass: window.Window = windowStage.getMainWindowSync();
+
+      // 设置全屏模式
+      await windowClass.setWindowLayoutFullScreen(true);
+      logger.info('WindowRect', 'Set full-screen mode success.');
+
+      // 初始化避让区域管理器 (保留项目二的AvoidanceManager，并桥接到全局变量)
+      this.avoidManager = new AvoidanceManager(windowClass, UIContext);
+      await this.avoidManager.init();
+      this.avoidManager.onChangeListener(this.avoidListener);
+
+      // 初始化窗口尺寸与断点 (一次性赋值)
+      this.initWindowDimensions(windowClass, UIContext);
+
+      // 注册窗口变化监听 (动态更新)
+      this.registerWindowListeners(windowClass, UIContext);
+
+    } catch (error) {
+      logger.error(`WindowInit`, `Failed to init window., ${error}`)
+    }
+  }
+
+  /**
+   * 初始化窗口尺寸数据
+   */
+  private initWindowDimensions(windowClass: window.Window, UIContext: UIContext) {
+    try {
+      const properties = windowClass.getWindowProperties()
+      const rect = properties.windowRect
+
+      // 单位转换
+      const WindowHeightVp = UIContext.px2vp(rect.height)
+      const WindowWidthVp = UIContext.px2vp(rect.width)
+      const widthBp: WidthBreakpoint = UIContext.getWindowWidthBreakpoint()
+
+      _PicState.window = windowClass;           // 静态：窗口对象
+      _PicState.windowWidth_px = rect.width;    // 静态：px宽度
+      _PicState.windowHeight_px = rect.height;  // 静态：px高度
+
+      PicState.windowHeight = WindowHeightVp    // 实例：vp高度 (需要响应式更新)
+      PicState.windowWidth = WindowWidthVp      // 实例：vp宽度
+      PicState.widthBp = widthBp                // 实例：宽度断点
+
+      logger.info('WindowRect', `Init: ${rect.width}px x ${rect.height}px`)
+
+      // 初始化窗口模式
+      this.onWindowModeChange(windowClass)
+    } catch (error) {
+      logger.error(`WindowDimensions`, `Failed to get properties., ${error}`)
+    }
+  }
+
+  /**
+   * 注册窗口状态监听
+   */
+  private registerWindowListeners(windowClass: window.Window, UIContext: UIContext) {
+    // 监听窗口大小变化
+    windowClass.on('windowSizeChange', async (data) => {
+      const WindowWidthVp = UIContext.px2vp(data.width)!
+      const WindowHeightVp = UIContext.px2vp(data.height)!
+
+      // 更新全局变量
+      PicState.windowHeight = WindowHeightVp
+      PicState.windowWidth = WindowWidthVp
+      _PicState.windowWidth_px = data.width
+      _PicState.windowHeight_px = data.height
+
+      // 触发断点计算
+      this.onWidthBpChange(UIContext)
+      this.onHeightBpChange(WindowHeightVp, WindowWidthVp)
+    });
+
+    // 监听自由窗口模式变化 (PC端)
+    try {
+      windowClass.on('freeWindowModeChange', (isFreeMode) => {
+        PicState.windowMode = isFreeMode
+        this.onWindowModeChange(windowClass)
+        logger.debug(`WindowMode`, `Mode changed: ${isFreeMode}`)
+      });
+    } catch (e) {
+      logger.error(`WindowMode`, `Listener failed: ${e.message}`)
+    }
+  }
+
+  // --- 辅助计算方法 ---
+  private onWidthBpChange(UIContext: UIContext) {
+    const widthBp: WidthBreakpoint = UIContext.getWindowWidthBreakpoint();
+    PicState.widthBp = widthBp
   }
 
   private onHeightBpChange(WindowHeight: number, WindowWidth: number) {
     let heightBp = 0
-    const WindowAspectRatio = WindowHeight / WindowWidth // 重写高度断点
-    if (WindowAspectRatio < 0.79) {
+    const ratio = WindowHeight / WindowWidth
+    if (ratio < BREAKPOINT_RATIO_LANDSCAPE) {
       heightBp = 0
-      AppStorage.setOrCreate('currentHeightBreakpoint', heightBp)
-      console.log(`断点测试 heightBp: ${heightBp} 高宽比：${WindowAspectRatio}`)
-    } else if (WindowAspectRatio >= 0.79 && WindowAspectRatio < 1.2) {
+    } else if (ratio >= BREAKPOINT_RATIO_LANDSCAPE && ratio < BREAKPOINT_RATIO_PORTRAIT) {
       heightBp = 1
-      AppStorage.setOrCreate('currentHeightBreakpoint', heightBp)
-      console.log(`断点测试 heightBp: ${heightBp} 高宽比：${WindowAspectRatio}`)
-    } else if (WindowAspectRatio >= 1.2) {
+    } else {
       heightBp = 2
-      AppStorage.setOrCreate('currentHeightBreakpoint', heightBp)
-      console.log(`断点测试 heightBp: ${heightBp} 高宽比：${WindowAspectRatio}`)
+    }
+    PicState.heightBp = heightBp
+  }
+
+  private async onWindowModeChange(windowClass: window.Window) {
+    try {
+      windowClass.setWindowDecorVisible(false)
+      windowClass.setWindowTitleButtonVisible(true, true, true)
+      await windowClass.setTitleAndDockHoverShown(false, false)
+
+      if (this.isFirstStart) {
+        PicState.windowMode = windowClass.isInFreeWindowMode()
+        this.isFirstStart = false
+      }
+      logger.info("WindowMode", `Current mode: ${PicState.windowMode}`)
+    } catch (e) {
+      logger.error("WindowMode", `Change error: ${e.message}`)
     }
   }
 

@@ -1,58 +1,35 @@
-import { DialogUtil, LogUtil } from '@pura/harmony-utils'
+import { LogUtil } from '@pura/harmony-utils'
 import { Api, ImageApi, ImageQuality } from '../common/Config'
-import { StorageKey } from '../common/Consts'
-import { PreferenceManager, PreferenceStorageKey } from '../utils/Preference'
+import { AppConstants } from '../common/Consts'
+import { PreferenceManager } from '../utils/preference/Settings'
 import { SettingsTitleBar } from './component/TitleBar'
-import { router } from '@kit.ArkUI'
-import { DialogAction } from '@pura/harmony-utils/src/main/ets/entity/constraint'
 import { HistoryUtil } from '../utils/History'
-import SettingsList, { SettingsItemAttribute } from './component/SettingsList'
-import { About, AboutApp, CheckUpdate } from './view/About'
+import SettingsList from './component/SettingsList'
 import { ToastUtil } from '../utils/ToastUtils'
-import { common } from '@kit.AbilityKit'
 import { ColorModeManager } from '../utils/ColorModeManager'
+import { SettingsItemAttribute } from '../common/Model'
+import { PicState, _PicState } from '../entryability/AppState'
+import { homeVM } from '../viewmodel/HomeViewModel'
+import { accountVM } from '../viewmodel/AccountViewModel'
+import { AccountConfirmDialog } from './component/AccountConfirmDialog'
+
 
 @Entry
-@Component
+@ComponentV2
 struct Settings {
-  @StorageProp('topRectHeight') topRectHeight: number = 0
-  @StorageProp('bottomRectHeight') bottomRectHeight: number = 0
-  @StorageLink(PreferenceStorageKey.API) api: Api = Api.Proxy
-  @StorageLink(PreferenceStorageKey.IMAGE_API) imageApi: ImageApi = ImageApi.TriageOne
-  @StorageLink(PreferenceStorageKey.IMAGE_QUALITY) imageQuality: ImageQuality = ImageQuality.Original
-  // 设置页面栈
-  @Provide('NavSettingsPathStack') SettingsPageInfos: NavPathStack = new NavPathStack()
-  private context = this.getUIContext().getHostContext() as common.UIAbilityContext
-  // 隐私模式变量
-  @StorageLink(PreferenceStorageKey.PRIVACY_MODE) privacyMode: boolean = false
-  @StorageLink(PreferenceStorageKey.Color_MODE) color_mode: string = 'auto'
-  @StorageProp(StorageKey.TOKEN) token: string = ''
-  @State showApiChannel: boolean = false
-  @State showImageChannel: boolean = false
-  @State showSettingType: 'Api' | 'Image' = 'Api'
-  @State latency: number[] = []
 
-  logout() {
-    DialogUtil.showConfirmDialog({
-      title: '提示',
-      message: '连接超时！',
-      confirm: '确定',
-      onAction: (action: number) => {
-        if (action === DialogAction.TWO) {
-          router.replaceUrl({ url: 'pages/Login' })
-            .then(() => {
-              AppStorage.setOrCreate<string>(StorageKey.TOKEN, '')
-            })
-        }
-      }
-    })
-  }
+  // 设置页面栈
+  private SettingsPageInfos: NavPathStack = new NavPathStack()
+
+  // 退出登录弹窗显隐
+  @Local showLogoutDialog: boolean = false
 
   build() {
-    Navigation(this.SettingsPageInfos) {
-      SettingsTitleBar({
-        title: '设置',
-      })
+    Stack() {
+      Navigation(this.SettingsPageInfos) {
+        SettingsTitleBar({
+          title: '设置',
+        })
 
       List({space: 12}) {
         ListItem() {
@@ -62,37 +39,37 @@ struct Settings {
                 {
                   name: '接口线路',
                   type: 'Menu',
-                  tips: PreferenceManager.ApiItems.find(api => api.value == this.api)?.name,
-                  menus: PreferenceManager.ApiItems,
-                  menuValue: this.api,
+                  tips: AppConstants.ApiItems.find(api => api.value == PreferenceManager.api)?.name,
+                  menus: AppConstants.ApiItems,
+                  menuValue: PreferenceManager.api,
                   onValueChange: (value) => { // 此处value为传递过来的key值
                     LogUtil.info(`value：${value} 切换接口线路: ${Api[value]}`)
-                    PreferenceManager.setApi(Api[value])
-                    LogUtil.info(`切换接口线路为: ${this.api}`)
+                    PreferenceManager.api = Api[value]
+                    LogUtil.info(`切换接口线路为: ${PreferenceManager.api}`)
                   }
                 },
                 {
                   name: '图源线路',
                   type: 'Menu',
-                  tips: PreferenceManager.ImageApiItems.find(imageApi => imageApi.value == this.imageApi)?.name,
-                  menus: PreferenceManager.ImageApiItems,
-                  menuValue: this.imageApi,
+                  tips: AppConstants.ImageApiItems.find(imageApi => imageApi.value == PreferenceManager.image_api)?.name,
+                  menus: AppConstants.ImageApiItems,
+                  menuValue: PreferenceManager.image_api,
                   onValueChange: (value) => {
                     LogUtil.info(`value：${value} 切换图源线路: ${ImageApi[value]}`)
-                    PreferenceManager.setImageApi(ImageApi[value])
-                    LogUtil.info(`切换图源线路为: ${this.imageApi}`)
+                    PreferenceManager.image_api = ImageApi[value]
+                    LogUtil.info(`切换图源线路为: ${PreferenceManager.image_api}`)
                   }
                 },
                 {
                   name: '图像质量',
                   type: 'Menu',
-                  tips: PreferenceManager.ImageQualityItems.find(imageApi => imageApi.value == this.imageQuality)?.name,
-                  menus: PreferenceManager.ImageQualityItems,
-                  menuValue: this.imageQuality,
+                  tips: AppConstants.ImageQualityItems.find(imageApi => imageApi.value == PreferenceManager.image_quality)?.name,
+                  menus: AppConstants.ImageQualityItems,
+                  menuValue: PreferenceManager.image_quality,
                   onValueChange: (value) => {
                     LogUtil.info(`value：${value} 切换图像质量: ${ImageQuality[value]}`)
-                    PreferenceManager.setImageApi(ImageQuality[value])
-                    LogUtil.info(`切换图像质量为: ${this.imageQuality}`)
+                    PreferenceManager.image_quality = ImageQuality[value]
+                    LogUtil.info(`切换图像质量为: ${PreferenceManager.image_quality}`)
                   },
                 }
               ],
@@ -100,22 +77,23 @@ struct Settings {
                 {
                 name: '隐私模式',
                 type: 'Switch',
-                switchVal: this.privacyMode,
+                switchByRow: true,
+                switchVal: PreferenceManager.privacy_mode,
                 onChange: (isOn) => {
                   ToastUtil.animateTo({ duration: 500 }, () => {
-                    this.privacyMode = isOn
+                    PreferenceManager.privacy_mode = isOn
                   })
                 }
                 },
                 {
                   name: '颜色模式',
                   type: 'Menu',
-                  tips: PreferenceManager.ColorModeItems.find(mode => mode.key == this.color_mode)?.name,
-                  menus: PreferenceManager.ColorModeItems,
-                  menuValue: this.color_mode,
+                  tips: AppConstants.ColorModeItems.find(mode => mode.key == PreferenceManager.color_mode)?.name,
+                  menus: AppConstants.ColorModeItems,
+                  menuValue: PreferenceManager.color_mode,
                   onValueChange: (value) => {
-                    this.color_mode = value as string
-                    ColorModeManager.switchColorMode(this.context, value as string)
+                    PreferenceManager.color_mode = value as string
+                    ColorModeManager.switchColorMode(_PicState.Context, value as string)
                   }
                 }
               ],
@@ -123,7 +101,7 @@ struct Settings {
                 name: '关于',
                 type: 'Normal',
                 onClick: () => {
-                  this.SettingsPageInfos.pushPathByName('About', false)
+                  this.SettingsPageInfos.pushPathByName('about', false)
                 }
               }],
               [{
@@ -131,17 +109,28 @@ struct Settings {
                 type: 'Normal',
                 onClick: () => {
                   HistoryUtil.clear()
-                  ToastUtil.showToast({ message: '浏览历史清空成功', })
+                  homeVM.markReadingDirty()
+                  homeVM.markHistoryDirty()
+                  ToastUtil.showToast({ message: '历史记录清空成功', })
                 }
               }],
-              ((this.token !== undefined && this.token.length > 0) ?
-                [{
-                  name: '退出登陆',
-                  type: 'Normal',
-                  onClick: () => {
-                    this.logout()
-                  }
-                } as SettingsItemAttribute ] : []),
+              ((PicState.token !== undefined && PicState.token.length > 0) ?
+                [
+                  {
+                    name: '账号管理',
+                    type: 'Normal',
+                    onClick: () => {
+                      this.SettingsPageInfos.pushPathByName('account_manage', false)
+                    }
+                  } as SettingsItemAttribute,
+                  {
+                    name: '退出登陆',
+                    type: 'Normal',
+                    onClick: () => {
+                      this.showLogoutDialog = true
+                    }
+                  } as SettingsItemAttribute
+                ] : []),
             ]
           })
         }
@@ -158,21 +147,24 @@ struct Settings {
     .height('100%')
     .hideToolBar(true)
     .backgroundColor($r('app.color.start_window_background'))
-    .navDestination(this.SettingsPagesMap)
-  }
 
-  /**
-   * 设置页路由表
-   */
-  @Builder
-  SettingsPagesMap(name: string) {
-    if (name === 'About') {
-      About()
-    } else if ( name === 'CheckUpdate') {
-      CheckUpdate()
-    } else if ( name === 'AboutApp') {
-      AboutApp()
+      // 退出登录确认弹窗（可勾选"忘记账号密码"）
+      AccountConfirmDialog({
+        visible: this.showLogoutDialog,
+        title: '退出登录',
+        message: '确定要退出登录吗？',
+        checkText: '同时忘记账号密码',
+        onCancel: () => {
+          this.showLogoutDialog = false
+        },
+        onConfirm: (forget: boolean) => {
+          this.showLogoutDialog = false
+          accountVM.logoutCurrent(forget)
+        }
+      })
     }
+    .width('100%')
+    .height('100%')
   }
 
 }

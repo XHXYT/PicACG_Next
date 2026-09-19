@@ -1,29 +1,32 @@
-import { ImageKnifeComponent } from '@ohos/imageknife'
+import { ImageKnifeComponent } from '@ohos/imageknifepro'
 import { DateUtil } from '@pura/harmony-utils'
-import { likeComment } from '../../api/comic'
-import { PreferenceStorageKey } from '../../utils/Preference'
-import { ComicCardInterface } from './ComicCard'
-import { promptAction } from '@kit.ArkUI'
 import CommentList from './CommentList'
 import HalfModal from './HalfModal'
+import { ComicCardInterface } from '../../common/Model'
 
-@Component
+
+@ComponentV2
 export default struct CommentListItem {
-  @StorageProp('bottomRectHeight') bottomRectHeight: number = 0
-  @StorageProp(PreferenceStorageKey.IMAGE_API) imageApi: string = ''
-  @Consume('pageStack') pageStack: NavPathStack;
-  @Prop _id: string
-  @Prop content: string
-  @Prop likesCount: number
-  @Prop isLike: boolean
-  @Prop commentsCount: number
-  @Prop createTime: string
-  @Prop comicTitle: string
-  @Prop comicId: string
-  @Prop avatar: string
-  @Prop name: string = ''
-  @Prop slogan: string
-  @State showInComments: boolean = false
+
+  @Param _id: string = ''
+  @Param content: string = ''
+  @Param likesCount: number = 0
+  @Param isLiked: boolean = false
+  @Param commentsCount: number = 0
+  @Param created_at: string = '' // 对应 Comment.created_at
+
+  // 关联数据
+  @Param comicTitle: string = '' // 对应 Comment._comic.title
+  @Param comicId: string = ''    // 对应 Comment._comic._id
+  @Param avatar: string = ''     // 处理后的头像路径
+  @Param name: string = ''       // 对应 Comment._user.name
+
+  // 内部 UI 状态
+  @Local showInComments: boolean = false
+
+  // 事件暴露
+  @Event onLike: (id: string, isLike: boolean) => void = () => {}
+  @Event onComicClick: (comic: ComicCardInterface) => void = () => {}
 
   build() {
     Row() {
@@ -31,12 +34,8 @@ export default struct CommentListItem {
       Column() {
         ImageKnifeComponent({
           imageKnifeOption: {
-            loadSrc: this.imageApi + this.avatar,
-            border: {
-              radius: 50,
-              width: 2,
-              color: $r('app.color.custom_pink')
-            }
+            loadSrc: this.avatar,
+            border: { radius: 50, width: 2, color: $r('app.color.custom_pink') }
           }
         })
           .width(60)
@@ -51,7 +50,7 @@ export default struct CommentListItem {
       Column() {
         // 昵称 + 评论时间
         Row() {
-          Text(`${this.name}`)
+          Text(this.name)
             .width('50%')
             .maxLines(1)
             .minFontSize(10)
@@ -59,7 +58,7 @@ export default struct CommentListItem {
             .textOverflow({ overflow: TextOverflow.Ellipsis })
             .heightAdaptivePolicy(TextHeightAdaptivePolicy.MIN_FONT_SIZE_FIRST)
 
-          Text(DateUtil.getTipDateStr(new Date(this.createTime)))
+          Text(DateUtil.getTipDateStr(new Date(this.created_at)))
             .width('50%')
             .maxLines(1)
             .minFontSize(10)
@@ -73,7 +72,7 @@ export default struct CommentListItem {
 
         // 评论内容
         Row() {
-          Text(`${this.content}`)
+          Text(this.content)
             .width('100%')
             .padding({ right: 20 })
         }
@@ -85,26 +84,16 @@ export default struct CommentListItem {
           Row() {
             Image($r('app.media.ic_public_heart'))
               .width(14)
-              .fillColor(this.isLike ? $r('app.color.custom_pink') : undefined)
+              .fillColor(this.isLiked ? $r('app.color.custom_pink') : undefined)
             Text(`${this.likesCount}`)
               .fontSize(14)
               .margin({ left: 5 })
           }
           .onClick(() => {
-            likeComment(this._id).then(res => {
-              if (res.action === 'like') {
-                promptAction.showToast({ message: '喜欢成功', });
-                this.isLike = true
-                this.likesCount++
-              } else {
-                promptAction.showToast({ message: '取消喜欢成功', });
-                this.isLike = false
-                this.likesCount--
-              }
-            })
+            this.onLike(this._id, this.isLiked)
           })
 
-          // 楼中楼
+          // 楼中楼 (显示评论数)
           if (this.commentsCount >= 0) {
             Row() {
               Image($r('app.media.ic_public_comments'))
@@ -115,17 +104,13 @@ export default struct CommentListItem {
             }
             .margin({ left: 15 })
             .onClick(() => {
-              if (this.commentsCount > 0) {
-                this.showInComments = true
-              } else {
-                this.showInComments = false
-              }
+              this.showInComments = this.commentsCount > 0
             })
           }
         }
         .width('100%')
 
-        // 本子超链接
+        // 漫画链接 (如果是评论列表)
         if (this.comicId && this.comicTitle) {
           Row() {
             Text(`>>> ${this.comicTitle}`)
@@ -134,9 +119,10 @@ export default struct CommentListItem {
               .maxLines(1)
               .textOverflow({ overflow: TextOverflow.Ellipsis })
               .onClick(() => {
-                this.pageStack.pushPath({
-                  name: 'ComicDetail',
-                  param: { id: this.comicId, title: this.comicTitle } as ComicCardInterface
+                this.onComicClick({
+                  id: this.comicId,
+                  title: this.comicTitle,
+                  image: ''
                 })
               })
           }
@@ -150,21 +136,14 @@ export default struct CommentListItem {
 
       HalfModal({
         show: this.showInComments,
-        view: () => {
-          this.inComments()
-        },
+        view: () => { this.inComments() },
         options: {
-          title: {
-            title: '回复',
-            subtitle: this.content,
-          },
+          title: { title: '回复', subtitle: this.content },
           height: SheetSize.MEDIUM,
           showClose: false,
           dragBar: false,
           blurStyle: BlurStyle.COMPONENT_ULTRA_THIN,
-          onDisappear: () => {
-            this.showInComments = false
-          },
+          onDisappear: () => { this.showInComments = false },
         }
       })
     }
@@ -174,9 +153,13 @@ export default struct CommentListItem {
     .layoutWeight(1)
   }
 
-  @Builder
-  inComments() {
-    CommentList({ commentId: this._id })
-      .margin({ bottom: this.bottomRectHeight })
+  @Builder inComments() {
+    CommentList({
+      commentId: this._id,
+      onComicClick: (comic) => {
+        this.onComicClick(comic)
+      }
+    })
   }
+
 }

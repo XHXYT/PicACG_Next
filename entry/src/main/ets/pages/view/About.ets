@@ -2,10 +2,15 @@ import { extractUpdateInfo, getUpdateInfo, UpdateInfo } from '../../utils/CheckU
 import SettingsList from '../component/SettingsList'
 import { SettingsTitleBar } from '../component/TitleBar'
 import { hilog } from '@kit.PerformanceAnalysisKit'
-import { PreferenceStorageKey } from '../../utils/Preference'
+import { PreferenceManager } from '../../utils/preference/Settings'
 import { GoToWeb } from '../../utils/GoWeb'
-import { common } from '@kit.AbilityKit'
 import { ToastUtil } from '../../utils/ToastUtils'
+import { PicState, _PicState } from '../../entryability/AppState'
+
+@Builder
+export function AboutBuilder() {
+  About()
+}
 
 
 /**
@@ -14,18 +19,14 @@ import { ToastUtil } from '../../utils/ToastUtils'
 @Component
 export struct About {
 
-  @StorageLink('VersionName') versionName: string = ''
-  @Consume('NavSettingsPathStack') SettingsPageInfos: NavPathStack
-  // 自动更新变量
-  @StorageLink(PreferenceStorageKey.AUTO_UPDATE) autoUpdate: boolean = false
-  // 隐私模式变量
-  @StorageLink(PreferenceStorageKey.PRIVACY_MODE) privacyMode: boolean = false
+  private pageInfos: NavPathStack = new NavPathStack()
 
   build() {
     NavDestination() {
       SettingsTitleBar({
         title: '关于',
         showBack: true,
+        navPathStack: this.pageInfos,
       })
 
       List({space: 12}) {
@@ -36,7 +37,7 @@ export struct About {
               .height(320)
               .objectFit(ImageFit.Contain)
               .margin({left: 12, right: 12})
-              .foregroundBlurStyle(this.privacyMode ? BlurStyle.Thin : BlurStyle.NONE)
+              .foregroundBlurStyle(PreferenceManager.privacy_mode ? BlurStyle.Thin : BlurStyle.NONE)
           }.width('100%')
           .justifyContent(FlexAlign.Center)
         }
@@ -47,7 +48,7 @@ export struct About {
               [
                 {
                   name: '应用版本',
-                  tips: `${this.versionName}`,
+                  tips: `${PicState.appVersion}`,
                   type: 'Tips',
                   onClick: () => {}
                 }
@@ -57,7 +58,7 @@ export struct About {
                   name: '关于应用',
                   type: 'Normal',
                   onClick: () => {
-                    this.SettingsPageInfos.pushPathByName('AboutApp', false)
+                    this.pageInfos.pushPathByName('about_app', false)
                   }
                 }
               ],
@@ -66,16 +67,16 @@ export struct About {
                   name: '检查更新',
                   type: 'Normal',
                   onClick: () => {
-                    this.SettingsPageInfos.pushPathByName('CheckUpdate', false)
+                    this.pageInfos.pushPathByName('check_update', false)
                   }
                 },
                 {
                   name: '自动检查更新',
                   type: 'Switch',
-                  switchVal: this.autoUpdate,
+                  switchVal: PreferenceManager.auto_update,
                   onChange: (isOn) => {
                     ToastUtil.animateTo({ duration: 500 }, () => {
-                      this.autoUpdate = isOn
+                      PreferenceManager.auto_update = isOn
                     })
                   }
                 }
@@ -92,7 +93,15 @@ export struct About {
     }.width('100%')
     .hideTitleBar(true)
     .backgroundColor($r('app.color.start_window_background'))
+    .onReady((ctx) => {
+      this.pageInfos = ctx.pathStack
+    })
   }
+}
+
+@Builder
+export function AboutAppBuilder() {
+  AboutApp()
 }
 
 /**
@@ -101,15 +110,15 @@ export struct About {
 @Component
 export struct AboutApp {
 
-  @Consume('NavSettingsPathStack') SettingsPageInfos: NavPathStack
-  private context = this.getUIContext().getHostContext()! as common.UIAbilityContext
+  private pageInfos: NavPathStack = new NavPathStack()
 
   build() {
     NavDestination() {
       SettingsTitleBar({
         title: '关于应用',
         subtitle: '',
-        showBack: true
+        showBack: true,
+        navPathStack: this.pageInfos,
       })
       List() {
         ListItem() {
@@ -129,7 +138,7 @@ export struct AboutApp {
                   name: '应用原仓库',
                   subtitle: 'https://github.com/Luxcis/PicACG_Next',
                   onClick: () => {
-                    GoToWeb('https://github.com/Luxcis/PicACG_Next', this.context)
+                    GoToWeb('https://github.com/Luxcis/PicACG_Next', _PicState.Context)
                   }
                 }
               ],
@@ -147,7 +156,7 @@ export struct AboutApp {
                   name: '此分支仓库',
                   subtitle: 'https://github.com/XHXYT/PicACG_Next',
                   onClick: () => {
-                    GoToWeb('https://github.com/XHXYT/PicACG_Next', this,context)
+                    GoToWeb('https://github.com/XHXYT/PicACG_Next', _PicState.Context)
                   }
                 }*/
               ],
@@ -163,11 +172,16 @@ export struct AboutApp {
     }.width('100%')
     .backgroundColor($r('app.color.start_window_background'))
     .hideTitleBar(true)
-    .onBackPressed(() => {
-      this.SettingsPageInfos.pop(true)
-      return true
+    .onReady((ctx) => {
+      this.pageInfos = ctx.pathStack
     })
   }
+
+}
+
+@Builder
+export function CheckUpdateBuilder() {
+  CheckUpdate()
 }
 
 /**
@@ -175,17 +189,12 @@ export struct AboutApp {
  */
 @Component
 export struct CheckUpdate {
-  @Consume latestVersionInfo: UpdateInfo
-  @StorageLink('VersionName') versionName: string = ''
-  @Consume('NavSettingsPathStack') SettingsPageInfos: NavPathStack
-  // 自动更新变量
-  @StorageLink(PreferenceStorageKey.AUTO_UPDATE) autoUpdate: boolean = false
-  private context = this.getUIContext().getHostContext()! as common.UIAbilityContext
+
+  private pageInfos: NavPathStack = new NavPathStack()
 
   async aboutToAppear(): Promise<void> {
-    if (!this.autoUpdate) {
-      await this.checkUpdate()
-    }
+    // 打开页面即检查更新（页面本身就是手动检查入口，不受"自动检查更新"开关影响）
+    await this.checkUpdate()
   }
 
   async checkUpdate() {
@@ -197,7 +206,7 @@ export struct CheckUpdate {
       if (theLatest !== null) {
         ToastUtil.showToast({message: '查询成功', duration: 2000 })
         // 查询完成
-        this.latestVersionInfo = theLatest
+        PicState.latestVersionInfo = theLatest
       } else {
         hilog.info(0xFF00, "UpdatetestTag", "提取更新信息失败")
       }
@@ -215,6 +224,7 @@ export struct CheckUpdate {
         title: '检查更新',
         subtitle: '',
         showBack: true,
+        navPathStack: this.pageInfos
       })
 
       List({space: 12}) {
@@ -225,13 +235,13 @@ export struct CheckUpdate {
               [
                 {
                   name: '当前版本',
-                  tips: `${this.versionName}`,
+                  tips: `${PicState.appVersion}`,
                   type: 'Tips',
                   onClick: () => {}
                 },
                 {
                   name: '最新版本',
-                  tips: `${this.latestVersionInfo.tag_name}`,
+                  tips: `${PicState.latestVersionInfo.tag_name}`,
                   type: 'Tips',
                   onClick: () => {}
                 }
@@ -240,16 +250,20 @@ export struct CheckUpdate {
                 {
                   name: '前往更新',
                   onClick: () => {
-                    GoToWeb('https://github.com/XHXYT/PicACG_NEXT/releases/', this.context)
+                    GoToWeb('https://github.com/XHXYT/PicACG_NEXT/releases/', _PicState.Context)
                   }
                 }
               ],
               [
                 {
                   name: '下载地址',
-                  subtitle: this.latestVersionInfo.browser_download_url,
+                  subtitle: PicState.latestVersionInfo.browser_download_url,
                   onClick: () => {
-                    GoToWeb(this.latestVersionInfo.browser_download_url, this.context)
+                    if (PicState.latestVersionInfo.browser_download_url) {
+                      GoToWeb(PicState.latestVersionInfo.browser_download_url, _PicState.Context)
+                    } else {
+                      ToastUtil.showToast({ message: '请先检查更新', duration: 2000 })
+                    }
                   }
                 }
               ],
@@ -265,6 +279,9 @@ export struct CheckUpdate {
     }.width('100%')
     .hideTitleBar(true)
     .backgroundColor($r('app.color.start_window_background'))
+    .onReady((ctx) => {
+      this.pageInfos = ctx.pathStack
+    })
   }
 }
 

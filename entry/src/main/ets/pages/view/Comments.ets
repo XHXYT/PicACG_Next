@@ -1,5 +1,6 @@
+import { PicState } from '../../entryability/AppState'
 import CommentList from '../component/CommentList'
-import { BackType, TitleBar, TitleType } from '../component/TitleBar'
+import { TitleBar } from '../component/TitleBar'
 
 @Builder
 export function CommentsBuilder(name: string, param: Object) {
@@ -11,42 +12,38 @@ export function CommentsBuilder(name: string, param: Object) {
  */
 @Component
 export default struct Comments {
-  // 状态栏高度
-  @StorageProp('topRectHeight') topRectHeight: number = 0
-  // 导航栏高度
-  @StorageProp('bottomRectHeight') bottomRectHeight: number = 0
-  @Consume('pageStack') pageStack: NavPathStack
+
+  private pageInfos: NavPathStack = new NavPathStack()
 
   build() {
     NavDestination() {
       Column() {
         TitleBar({
-          titleBarColor: $r('app.color.start_window_background'),
-          statusBarColor: $r('app.color.start_window_background'),
-          centerLeftPadding: 60,
-          centerType: TitleType.TEXT,
-          centerText: '哔咔留言板',
-          centerTextColor: $r('app.color.common_button_background_light'),
-          leftBackType: BackType.NONE,
-          leftBackFillColor: $r('app.color.common_button_background_light'),
-          leftOnClick: () => {
-            this.pageStack.pop()
-          },
+          title: '哔咔留言板',
         })
-        CommentList({ comicId: '5822a6e3ad7ede654696e482' })
+        CommentList({
+          comicId: '5822a6e3ad7ede654696e482',
+          onComicClick: (comic) => {
+            this.pageInfos.pushPathByName('comic_detail', comic)
+          }
+        })
           .margin({ top: 10 })
           .layoutWeight(1)
       }
       .height('100%')
       .width('100%')
       .padding({
-        top: this.topRectHeight,
-        bottom: this.bottomRectHeight,
+        top: PicState.topRectHeight,
+        bottom: PicState.bottomRectHeight,
         left: 10,
         right: 10
       })
     }.backgroundColor($r('app.color.start_window_background'))
     .mode(NavDestinationMode.STANDARD)
     .hideTitleBar(true)
+    .onReady((ctx) => {
+      this.pageInfos = ctx.pathStack
+    })
   }
+
 }

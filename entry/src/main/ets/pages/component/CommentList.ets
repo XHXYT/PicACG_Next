@@ -1,131 +1,224 @@
-import { LogUtil } from '@pura/harmony-utils';
-import { comments, commentsChildren, replyComment, sendComment } from '../../api/comic';
+import { comments, commentsChildren, replyComment, sendComment, likeComment } from '../../api/comic';
+import { myComments } from '../../api/profile';
 import { Comment } from '../../api/models';
-import { CommentResponse, myComments } from '../../api/profile';
+import { CommentResponse, ComicActionResponse } from '../../api/profile';
+import { ToastUtil } from '../../utils/ToastUtils';
 import CommentListItem from './CommentListItem';
-import { promptAction } from '@kit.ArkUI';
+import { LogUtil } from '@pura/harmony-utils';
+import { ComicCardInterface } from '../../common/Model';
+import { buildImageUrl } from '../../common/Consts';
+import { homeVM } from '../../viewmodel/HomeViewModel';
 
-@Component
+
+@ObservedV2
+class CommentListViewModel {
+  @Trace comments: Comment[] = [];
+  @Trace topComments: Comment[] = [];
+  @Trace isLoading: boolean = false;
+  @Trace isRefreshing: boolean = true;
+  @Trace canReply: boolean = false;
+
+  private page: number = 1;
+  private maxPage: number = 1;
+  private comicId: string = '';
+  private commentId: string = '';
+
+  init(comicId: string, commentId: string) {
+    this.comicId = comicId;
+    this.commentId = commentId;
+    this.loadComments();
+  }
+
+  async refresh() {
+    this.page = 1;
+    await this.loadComments();
+  }
+
+  async loadMore() {
+    if (this.isLoading || this.page >= this.maxPage) return;
+    this.page++;
+    await this.loadComments();
+  }
+
+  private async loadComments() {
+    this.isLoading = true;
+
+    try {
+      let res: CommentResponse;
+
+      // 根据 ID 判断使用哪个 API (严格遵循 comic.ets 和 profile.ets 的定义)
+      if (this.commentId) {
+        // 楼中楼： -> Promise<CommentResponse>
+        res = await commentsChildren(this.page, this.commentId);
+        this.canReply = true;
+      } else if (this.comicId) {
+        // 漫画评论： -> Promise<CommentResponse>
+        res = await comments(this.page, this.comicId);
+        this.canReply = true;
+      } else {
+        // 我的评论：(page) => Promise<CommentResponse>
+        res = await myComments(this.page);
+        this.canReply = false;
+      }
+
+      // 处理 PicaPage 分页数据
+      const pager = res.comments;
+      if (this.page === 1) {
+        this.comments = pager.docs || [];
+        this.topComments = res.topComments || [];
+      } else {
+        this.comments = [...this.comments, ...pager.docs];
+      }
+
+      this.page = pager.page;
+      this.maxPage = pager.pages;
+
+    } catch (e) {
+      LogUtil.error('Load comments failed: ' + JSON.stringify(e));
+    } finally {
+      this.isLoading = false;
+      this.isRefreshing = false;
+    }
+  }
+
+  async postComment(content: string): Promise<boolean> {
+    if (!content) return false;
+    try {
+      if (this.commentId) {
+        // 回复楼中楼： {
+        await replyComment(this.commentId, content);
+      } else if (this.comicId) {
+        // 发表评论： {
+        await sendComment(this.comicId, content);
+      }
+      ToastUtil.showToast({ message: '评论成功' });
+      // 新评论会出现在"我的评论"列表中，标脏等待其可见时刷新
+      homeVM.markCommentDirty();
+      await this.refresh();
+      return true;
+    } catch (e) {
+      ToastUtil.showToast({ message: '评论失败' });
+      return false;
+    }
+  }
+
+  async toggleLike(commentId: string, isCurrentlyLiked: boolean): Promise<void> {
+    try {
+      // 调用点赞 API，返回 ComicActionResponse
+      const res: ComicActionResponse = await likeComment(commentId);
+      // 根据返回的 action 判断状态
+      if (res.action === 'like') {
+        ToastUtil.showToast({ message: '喜欢成功' });
+        this.updateCommentLikeStatus(commentId, true, 1);
+      } else {
+        // 'unlike'
+        ToastUtil.showToast({ message: '取消喜欢成功' });
+        this.updateCommentLikeStatus(commentId, false, -1);
+      }
+    } catch (e) {
+      LogUtil.error('Like failed');
+    }
+  }
+
+  private updateCommentLikeStatus(id: string, isLike: boolean, countDelta: number) {
+    const updateList = (list: Comment[]): boolean => {
+      const index = list.findIndex(c => c._id === id);
+      if (index !== -1) {
+        const oldItem = list[index];
+        // 创建新对象以触发 @Trace 更新
+        const newItem: Comment = {
+          isLiked: isLike,
+          likesCount: oldItem.likesCount + countDelta,
+          id: oldItem.id,
+          content: oldItem.content,
+          hide: oldItem.hide,
+          created_at: oldItem.created_at,
+          totalComments: oldItem.totalComments,
+          commentsCount: oldItem.commentsCount,
+          isTop: oldItem.isTop,
+          _id: oldItem._id,
+          _comic: oldItem._comic,
+          _user: oldItem._user
+        };
+
+        // 替换数组元素以触发更新
+        const newList = [...list];
+        newList[index] = newItem;
+
+        if (list === this.comments) {
+          this.comments = newList;
+        } else {
+          this.topComments = newList;
+        }
+        return true;
+      }
+      return false;
+    };
+
+    // 先在置顶里找，找不到再去普通列表
+    if (!updateList(this.topComments)) {
+      updateList(this.comments);
+    }
+  }
+}
+
+@ComponentV2
 export default struct CommentList {
-  @StorageProp('bottomRectHeight') bottomRectHeight: number = 0
-  @State comments: Comment[] = []
-  @State topComments: Comment[] = []
-  @State isRefreshing: boolean = true
-  @State isLoading: boolean = false;
-  @State isEnd: boolean = false;
-  @State maxPage: number = 1
-  @State total: number = 0
-  @State page: number = 1
-  @State content: string = ''
-  @State showReply: boolean = false
-  @Prop avatar: string | undefined = undefined
-  @Prop comicId: string
-  @Prop commentId: string
+
+  @Param comicId: string = ''
+  @Param commentId: string = ''
+  @Param avatar: string | undefined = undefined
+  @Param refreshTick: number = 0    // 刷新信号
+
+  @Local viewModel: CommentListViewModel = new CommentListViewModel()
+  @Local inputContent: string = '';
+
+  @Event onComicClick: (comic: ComicCardInterface) => void = () => {}
+
   private scroll: Scroller = new Scroller()
 
-  loadComments() {
-    let api: (page: number, id?: string) => Promise<CommentResponse>
-    if (this.commentId) {
-      LogUtil.info('加载楼中楼', this.comicId)
-      api = commentsChildren as (page: number, commentId?: string) => Promise<CommentResponse>
-      this.showReply = true
-    } else if (this.comicId) {
-      LogUtil.info('加载漫画评论', this.comicId)
-      api = comments as (page: number, comicId?: string) => Promise<CommentResponse>
-      this.showReply = true
-    } else {
-      LogUtil.info('加载我的评论')
-      api = myComments
-    }
-    api(this.page, this.commentId ? this.commentId : this.comicId)
-      .then(res => {
-        animateTo({ duration: 500 }, () => {
-          if (this.page === 1) {
-            this.comments = res.comments.docs
-            this.topComments = res.topComments
-          } else {
-            this.comments.push(...res.comments.docs)
-          }
-          this.page = res.comments.page
-          this.maxPage = res.comments.pages
-        })
-      })
-      .finally(() => {
-        animateTo({ duration: 500 }, () => {
-          this.isRefreshing = false
-          this.isLoading = false
-        })
-      })
+  aboutToAppear(): void {
+    this.viewModel.init(this.comicId, this.commentId);
+  }
+
+  // tick 变化时刷新数据
+  @Monitor('refreshTick')
+  onRefreshTickChange(): void {
+    // 回到列表顶部，避免刷新后停在底部旧位置
+    this.scroll.scrollTo({ xOffset: 0, yOffset: 0 })
+    this.viewModel.refresh()
   }
 
   build() {
     Column() {
-      Refresh({ refreshing: $$this.isRefreshing }) {
+      Refresh({ refreshing: $$this.viewModel.isRefreshing }) {
         List({ space: 5, scroller: this.scroll }) {
-          ForEach(this.topComments, (comment: Comment) => {
-            ListItem() {
-              CommentListItem({
-                _id: comment._id,
-                content: comment.content,
-                isLike: comment.isLiked,
-                likesCount: comment.likesCount,
-                commentsCount: comment.commentsCount,
-                createTime: comment.created_at,
-                comicTitle: comment._comic.title,
-                comicId: comment._comic._id,
-                avatar: `${this.avatar ? this.avatar : comment._user?.avatar?.path}`
-              })
-            }
-            .layoutWeight(1)
-            .transition(TransitionEffect.asymmetric(
-              TransitionEffect.move(TransitionEdge.BOTTOM).animation({ duration: 300 }),
-              TransitionEffect.move(TransitionEdge.START).animation({ duration: 300 })
-            ))
-            .borderWidth(1)
-            .borderRadius(10)
-            .borderColor($r('app.color.custom_pink'))
-          }, (item: Comment) => {
-            return item._id
-          })
 
-          ForEach(this.comments, (comment: Comment) => {
-            ListItem() {
-              CommentListItem({
-                _id: comment._id,
-                content: comment.content,
-                isLike: comment.isLiked,
-                likesCount: comment.likesCount,
-                commentsCount: comment.commentsCount,
-                createTime: comment.created_at,
-                comicTitle: comment._comic.title,
-                comicId: comment._comic._id,
-                avatar: `${this.avatar ? this.avatar : comment._user?.avatar?.path}`
-              })
-            }
-            .layoutWeight(1)
-            .transition(TransitionEffect.asymmetric(
-              TransitionEffect.move(TransitionEdge.BOTTOM).animation({ duration: 300 }),
-              TransitionEffect.move(TransitionEdge.START).animation({ duration: 300 })
-            ))
-          }, (item: Comment) => {
-            return item._id
-          })
+          // 置顶评论
+          Repeat<Comment>(this.viewModel.topComments)
+            .key((item: Comment) => item._id)
+            .each((obj: RepeatItem<Comment>) => {
+              ListItem() {
+                this.CommentItemBuilder(obj.item, true)
+              }
+              .borderWidth(1)
+              .borderRadius(10)
+              .borderColor($r('app.color.custom_pink'))
+            })
 
-          if (this.comments.length === this.total) {
-            ListItem() {
-              Row() {
-                Text('没有更多了')
-              }.width('100%')
-              .height(64)
-              .justifyContent(FlexAlign.Center)
-            }
-          }
+          // 普通评论
+          Repeat<Comment>(this.viewModel.comments)
+            .key((item: Comment) => item._id)
+            .each((obj: RepeatItem<Comment>) => {
+              ListItem() {
+                this.CommentItemBuilder(obj.item, false)
+              }
+            })
 
-          if (this.isLoading) {
+          if (this.viewModel.isLoading) {
             ListItem() {
-              Row() {
-                LoadingProgress().height(32).width(48)
-              }.width('100%')
+              Row() { LoadingProgress().height(32).width(48) }
+              .width('100%')
               .height(64)
               .justifyContent(FlexAlign.Center)
             }
@@ -133,22 +226,11 @@ export default struct CommentList {
         }
         .width('100%')
         .height('100%')
-        .divider({
-          strokeWidth: 1,
-          color: $r('app.color.custom_gray'),
-          startMargin: 20,
-          endMargin: 20
-        })
+        .divider({ strokeWidth: 1, color: $r('app.color.custom_gray'), startMargin: 20, endMargin: 20 })
         .scrollBar(BarState.Off)
         .onScrollIndex((_: number, end: number) => {
-          this.isEnd = end + 5 >= this.comments.length
-          if (this.isEnd && this.page < this.maxPage) {
-            LogUtil.info('onReachEnd到底辣！！！要加载更多')
-            this.page++
-            animateTo({ duration: 500 }, () => {
-              this.isLoading = true
-              this.loadComments()
-            })
+          if (end + 5 >= this.viewModel.comments.length) {
+            this.viewModel.loadMore();
           }
         })
       }
@@ -156,35 +238,23 @@ export default struct CommentList {
       .refreshOffset(64)
       .pullToRefresh(true)
       .onRefreshing(() => {
-        LogUtil.info('刷新！！！！')
-        this.page = 1
-        animateTo({ duration: 500 }, () => {
-          this.loadComments()
-        })
+        this.viewModel.refresh();
       })
 
-      if (this.showReply) {
+      if (this.viewModel.canReply) {
         Column() {
-          TextInput({
-            text: this.content,
-            placeholder: '发表你的观点吧!',
-          })
+          TextInput({ text: this.inputContent, placeholder: '发表你的观点吧!' })
             .width('100%')
             .height(50)
             .margin({ top: 10, bottom: 10 })
-            .onChange((value: string) => {
-              this.content = value
-            })
-            .onSubmit(() => {
-              this.doComment()
-            })
+            .onChange((value: string) => { this.inputContent = value })
+            .onSubmit(() => { this.doComment() })
+
           Button('回复')
             .width('100%')
             .height(40)
             .backgroundColor($r('app.color.custom_pink'))
-            .onClick(() => {
-              this.doComment()
-            })
+            .onClick(() => { this.doComment() })
         }
         .width('100%')
         .transition(TransitionEffect.scale({ x: 0.9, y: 0.9 }))
@@ -194,17 +264,40 @@ export default struct CommentList {
     .padding({ left: 10, right: 10 })
   }
 
-  doComment() {
-    if (this.commentId) {
-      replyComment(this.commentId, this.content).then(() => {
-        this.content = ''
-        promptAction.showToast({ message: '评论成功', });
-      })
-    } else if (this.comicId) {
-      sendComment(this.comicId, this.content).then(() => {
-        this.content = ''
-        promptAction.showToast({ message: '评论成功', });
-      })
-    }
+  @Builder
+  CommentItemBuilder(comment: Comment, isTop: boolean) {
+    CommentListItem({
+      _id: comment._id,
+      content: comment.content,
+      isLiked: comment.isLiked,
+      likesCount: comment.likesCount,
+      commentsCount: comment.commentsCount,
+      created_at: comment.created_at,
+      // 映射嵌套对象
+      comicTitle: comment._comic?.title ?? '',
+      comicId: comment._comic?._id ?? '',
+      // 优先使用传入的 avatar (如有)，否则使用评论用户的头像
+      avatar: this.avatar ?? (comment._user?.avatar ? buildImageUrl(comment._user.avatar) : ''),
+      name: comment._user?.name ?? '',
+      onLike: (id) => {
+        this.viewModel.toggleLike(id, comment.isLiked);
+      },
+      onComicClick: (comic) => {
+        this.onComicClick(comic)
+      }
+    })
+      .layoutWeight(1)
+      .transition(TransitionEffect.asymmetric(
+        TransitionEffect.move(TransitionEdge.BOTTOM).animation({ duration: 300 }),
+        TransitionEffect.move(TransitionEdge.START).animation({ duration: 300 })
+      ))
   }
+
+  doComment() {
+    if (!this.inputContent) return;
+    this.viewModel.postComment(this.inputContent).then(success => {
+      if (success) this.inputContent = '';
+    });
+  }
+
 }

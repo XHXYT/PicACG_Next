@@ -1,35 +1,37 @@
-import { ImageKnifeComponent, ImageKnifeOption } from '@ohos/imageknife';
-import { LogUtil } from '@pura/harmony-utils';
-import { StorageKey } from '../../common/Consts';
-import { PreferenceStorageKey } from '../../utils/Preference';
-import { ComicCardInterface } from './ComicCard';
+import { ImageKnifeComponentV2, ImageKnifeOption } from '@ohos/imageknifepro';
+import { ComicCardInterface } from '../../common/Model';
+import { PicState } from '../../entryability/AppState';
+import { createLogger } from '../../utils/Logger';
+import { PreferenceManager } from '../../utils/preference/Settings';
 
-@Component
+const logger = createLogger('ComicListItem')
+
+
+@ComponentV2
 export default struct ComicListItem {
-  @StorageProp(PreferenceStorageKey.PRIVACY_MODE) privacyMode: boolean = false
-  @StorageProp(StorageKey.FILTER_CATEGORY) filterCategory: string[] = []
-  @Consume('pageStack') pageStack: NavPathStack;
-  @Prop image: string
-  @Prop _id: string
-  @Prop title: string = '无标题'
-  @Prop pagesCount: number = 0
-  @Prop finished: boolean = false
-  @Prop author: string = ''
-  @Prop categories: string[] = []
-  @Prop likesCount: number = 0
-  @Prop viewCount: number = 0
-  @Prop epsCount: number = 0
-  @Prop filter: boolean = false
+
+  @Param image: string = '';
+  @Param _id: string = '';
+  @Param title: string = '无标题';
+  @Param pagesCount: number = 0;
+  @Param finished: boolean = false;
+  @Param author: string = '';
+  @Param categories: string[] = [];
+  @Param likesCount: number = 0;
+  @Param viewCount: number = 0;
+  @Param epsCount: number = 0;
+  @Param filter: boolean = false;
+
+  @Event onItemClick: (comic: ComicCardInterface) => void = () => {};
 
   build() {
     Row() {
       Column() {
-        ImageKnifeComponent({
-          imageKnifeOption:
-          {
+        ImageKnifeComponentV2({
+          imageKnifeOption: {
             loadSrc: this.image,
             placeholderSrc: $r('app.media.loading'),
-            border: {radius:10}
+            border: { radius: 10 }
           }
         })
           .width(100)
@@ -37,7 +39,7 @@ export default struct ComicListItem {
       .height(160)
       .borderRadius(10)
       .margin({ right: 16, top: 10, bottom: 10 })
-      .foregroundBlurStyle(this.privacyMode ? BlurStyle.Thin : BlurStyle.NONE)
+      .foregroundBlurStyle(PreferenceManager.privacy_mode ? BlurStyle.Thin : BlurStyle.NONE)
 
       Column() {
         Row() {
@@ -72,7 +74,6 @@ export default struct ComicListItem {
               .fontSize(14)
               .margin({ left: 5 })
           }
-
           Row() {
             Image($r('app.media.ic_public_eye'))
               .width(14)
@@ -110,16 +111,18 @@ export default struct ComicListItem {
     .layoutWeight(1)
     .overlay(this.filter && this.isFilter(this.categories) ? this.filterOverlay(this.categories) : undefined)
     .onClick(() => {
+      // 如果触发了屏蔽，不响应点击
       if (this.filter && this.isFilter(this.categories)) {
-        return
+        return;
       }
-      LogUtil.info(`点击了本子：${this._id} - ${this.title}`)
+      logger.info(`点击了本子：${this._id} - ${this.title}`);
+      // 组装数据并触发事件，由父组件决定路由跳转逻辑
       let comic: ComicCardInterface = {
         id: this._id,
         image: this.image,
         title: this.title
-      }
-      this.pageStack.pushPathByName('ComicDetail', comic)
+      };
+      this.onItemClick(comic);
     })
   }
 
@@ -130,8 +133,7 @@ export default struct ComicListItem {
         .width('100%')
         .height(180)
         .foregroundBlurStyle(BlurStyle.Thin)
-
-      Text(`根据标签屏蔽：${comicCategory.filter(c => this.filterCategory.indexOf(c) >= 0).join('、')}`)
+      Text(`根据标签屏蔽：${comicCategory.filter(c => PicState.filterCategory.indexOf(c) >= 0).join('、')}`)
         .width('100%')
         .height(20)
         .borderRadius(10)
@@ -144,14 +146,9 @@ export default struct ComicListItem {
     .height(180)
   }
 
-  isFilter(comicCategory: string[]): boolean {
-    for (let cc of comicCategory) {
-      for (let fc of this.filterCategory) {
-        if (cc === fc) {
-          return true
-        }
-      }
-    }
-    return false
+  // 判断逻辑
+  private isFilter(comicCategory: string[]): boolean {
+    return comicCategory.some(c => PicState.filterCategory.includes(c));
   }
+
 }

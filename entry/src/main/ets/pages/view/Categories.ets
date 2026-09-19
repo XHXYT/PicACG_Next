@@ -1,27 +1,26 @@
-import { ImageKnifeComponent } from '@ohos/imageknife'
+import { ImageKnifeComponent, ImageKnifeComponentV2 } from '@ohos/imageknifepro'
 import { LogUtil } from '@pura/harmony-utils'
 import { categories } from '../../api/comic'
 import { Category } from '../../api/models'
 import { CategoryFilter, LocalCategories, LocalCategory } from '../../common/Config'
-import { StorageKey } from '../../common/Consts'
-import { PreferenceStorageKey } from '../../utils/Preference'
-import { SearchType } from './Comics'
+import { PicState } from '../../entryability/AppState'
+import { PreferenceManager } from '../../utils/preference/Settings'
+import { SearchType } from '../../common/Model'
+import { ToastUtil } from '../../utils/ToastUtils'
+
 
 /**
  * 分类目录
  */
-@Component
+@ComponentV2
 export default struct Categories {
-  @StorageProp(PreferenceStorageKey.PRIVACY_MODE) privacyMode: boolean = false
-  @StorageProp(PreferenceStorageKey.IMAGE_API) imageApi: string = ''
-  @StorageLink(StorageKey.CATEGORY) category: string[] = []
-  @Consume('pageStack') pageStack: NavPathStack;
-  @State remoteCategories: Category[] = []
-  @State localCategories: LocalCategory[] = LocalCategories
+
+  @Local remoteCategories: Category[] = []
+  @Local localCategories: LocalCategory[] = LocalCategories
 
   aboutToAppear(): void {
     categories().then(res => {
-      animateTo({ duration: 300 }, () => {
+      ToastUtil.animateTo({ duration: 300 }, () => {
         this.remoteCategories = res.categories.filter((item) =>!CategoryFilter.includes(item.title))
       })
       const cate: string[] = []
@@ -30,7 +29,7 @@ export default struct Categories {
           cate.push(item.title)
         }
       })
-      this.category = cate
+      PicState.category = cate
     }).catch((err: Error) => {
       LogUtil.error(`错误: ${err.message}`)
       LogUtil.error(err.stack)
@@ -58,7 +57,7 @@ export default struct Categories {
         // 远程分类
         ForEach(this.remoteCategories, (item: Category) => {
           ListItem({ style: ListItemStyle.CARD }) {
-            this.CategoryCard(`${this.imageApi}${item.thumb.path}`, item.title, 'Comics',
+            this.CategoryCard(`${PreferenceManager.image_api}${item.thumb.path}`, item.title, 'comics',
               { type: SearchType.Category, key: item.title })
           }
           .width(115)
@@ -87,7 +86,7 @@ export default struct Categories {
   CategoryCard(img: ResourceStr, title: string, router?: string, param?: ESObject) {
     Column() {
       Column() {
-        ImageKnifeComponent({
+        ImageKnifeComponentV2({
           imageKnifeOption: {
             loadSrc: img,
             placeholderSrc: $r('app.media.loading'),
@@ -97,7 +96,7 @@ export default struct Categories {
           .height(115)
       }
       .borderRadius(6)
-      .foregroundBlurStyle(this.privacyMode ? BlurStyle.Thin : BlurStyle.NONE)
+      .foregroundBlurStyle(PreferenceManager.privacy_mode ? BlurStyle.Thin : BlurStyle.NONE)
 
       Text(title)
         .textAlign(TextAlign.Center)
@@ -106,11 +105,11 @@ export default struct Categories {
         .fontWeight(500)
     }
     .onClick(() => {
-      LogUtil.info('跳转路由：', router)
-      this.pageStack.pushPath({
+      PicState.pageStack.pushPath({
         name: router,
         param
       })
     })
   }
+
 }

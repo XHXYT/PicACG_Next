@@ -1,15 +1,24 @@
-import ComicCard, { ComicCardInterface } from './ComicCard'
+import { ComicCardInterface } from '../../common/Model'
+import ComicCard from './ComicCard'
 
-@Component
+
+@ComponentV2
 export default struct ComicCardScroll {
-  @Prop comics: ComicCardInterface[]
+
+  @Param @Require comics: ComicCardInterface[]
+  @Event onCardClick: (comic: ComicCardInterface) => void
 
   build() {
     Column() {
       List({ space: 10 }) {
         ForEach(this.comics, (comic: ComicCardInterface, index: number) => {
           ListItem() {
-            ComicCard({ comic: comic })
+            ComicCard({
+              comic: comic,
+              onCardClick: (comic) => {
+                this.onCardClick(comic)
+              }
+            })
           }
           .transition(TransitionEffect.move(TransitionEdge.END))
         })

@@ -22,10 +22,14 @@ import {
   Platform,
   SecretKey
 } from '../common/Config'
-import { DialogUtil, LogUtil } from '@pura/harmony-utils'
 import CryptoJS from '@ohos/crypto-js'
-import { PreferenceStorageKey } from './Preference'
-import { router } from '@kit.ArkUI'
+import { PreferenceManager } from './preference/Settings'
+import { KVDbUtil } from './preference/KVdbUtil'
+import { createLogger } from './Logger'
+import { DialogUtil } from '@pura/harmony-utils'
+import { PicState } from '../entryability/AppState'
+
+const logger = createLogger('HttpUtil')
 
 export class HttpUtil {
   private static instance: AxiosInstance
@@ -70,7 +74,7 @@ export class HttpUtil {
 
   private static defaultConfig(): CreateAxiosDefaults {
     return {
-      baseURL: AppStorage.get(PreferenceStorageKey.API),
+      baseURL: PreferenceManager.api,
       // 超时时间30秒
       timeout: 15 * 1000,
     }
@@ -82,15 +86,15 @@ export class HttpUtil {
 
     const header = new HashMap<String, String>()
     header.set('Content-Type', 'application/json; charset=UTF-8')
-    header.set('App-channel', AppStorage.get(PreferenceStorageKey.APP_CHANNEL))
+    header.set('App-channel', PreferenceManager.channel)
     header.set('App-uuid', AppUuid)
     header.set('Accept', Accept)
     header.set('App-Platform', Platform)
     header.set('Time', timestamp)
     header.set('Nonce', nonce)
-    header.set('Image-quality', AppStorage.get(PreferenceStorageKey.IMAGE_QUALITY))
+    header.set('Image-quality', PreferenceManager.image_quality)
     header.set('Signature', HttpUtil.createSignature(path, timestamp, nonce, method))
-    if (AppStorage.get(PreferenceStorageKey.API) === Api.Origin) {
+    if (PreferenceManager.api === Api.Origin) {
       header.set('User-Agent', Agent)
       header.set('Api-key', ApiKey)
       header.set('App-version', AppVersion)
@@ -106,17 +110,19 @@ export class HttpUtil {
       path = path.substring(1)
     }
     const raw = (path + timestamp + nonce + method + ApiKey).toLowerCase()
-    LogUtil.debug(`SignRaw: ${raw}`)
+    logger.debug(`SignRaw: ${raw}`)
     const signature = CryptoJS.HmacSHA256(raw, SecretKey).toString(CryptoJS.enc.Hex)
-    LogUtil.info(`Signature: ${signature}`)
+    logger.info(`Signature: ${signature}`)
     return signature
   }
 
   /**请求拦截器*/
   private static httpInterceptorsRequest() {
-    HttpUtil.instance.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+    HttpUtil.instance.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
       // 对请求数据做点什么
-      config.headers[StorageKey.TOKEN] = AppStorage.get(StorageKey.TOKEN)
+      config.headers[StorageKey.TOKEN] = await KVDbUtil.getData(StorageKey.TOKEN, '')
+      // 赋值到全局变量
+      PicState.token = config.headers[StorageKey.TOKEN]
       let signUrl = config.url
       if (config.params !== undefined) {
         signUrl += '?' + Object.keys(config.params).map(key => key + '=' + config.params[key]).join('&')
@@ -126,12 +132,12 @@ export class HttpUtil {
       HttpUtil.buildHeader(signUrl, config.method).forEach((val: string, key: string) => {
         config.headers[key] = val
       })
-      LogUtil.debug(`Host: ${AppStorage.get(PreferenceStorageKey.API)}`)
-      LogUtil.debug(`接口[${config.url}]发送请求，请求参数：${JSON.stringify(config.params)}，请求体：${JSON.stringify(config.data)}`)
+      logger.debug(`Host: ${PreferenceManager.api}`)
+      logger.debug(`接口[${config.url}]发送请求，请求参数：${JSON.stringify(config.params)}，请求体：${JSON.stringify(config.data)}`)
       return config
     }, (error: AxiosError) => {
       // 对请求错误做些什么
-      LogUtil.error(error.message)
+      logger.error(error.message)
       return Promise.reject(error)
     })
   }
@@ -141,7 +147,7 @@ export class HttpUtil {
     HttpUtil.instance.interceptors.response.use((response: AxiosResponse<PicaResponse<ESObject>, ESObject>) => {
       // 对响应数据做点什么
       if (response.status === Ok) {
-        LogUtil.debug(`接口[${response.config.url}]请求成功，返回结果：${JSON.stringify(response.data)}`)
+        logger.debug(`接口[${response.config.url}]请求成功，返回结果：${JSON.stringify(response.data)}`)
         return response.data.data
       } else if (response.status === Unauthorized) {
         return Promise.reject(new Error(`${Unauthorized}`))
@@ -151,7 +157,7 @@ export class HttpUtil {
     }, (error: AxiosError<PicaResponse<ESObject>, ESObject>) => {
       // 对响应错误做点什么
       if (error.message.toLowerCase().includes(Timeout)) {
-        LogUtil.error(`接口请求失败：连接超时`)
+        logger.error(`接口请求失败：连接超时`)
         if (!HttpUtil.isShowTimeout) {
           HttpUtil.isShowTimeout = true
           DialogUtil.showConfirmDialog({
@@ -162,24 +168,25 @@ export class HttpUtil {
             }
           })
         }
-
         return Promise.reject(new Error(Timeout))
       } else {
         if (error.response) {
+          // 先把原始响应打出来，定位"服务器回了什么"
+          logger.error(`接口[${error.response.config?.url}]HTTP=${error.response.status} ` +
+            `dataType=${typeof error.response.data} body=${JSON.stringify(error.response.data)}`)
+
           if (typeof error.response.data === 'string') {
-            LogUtil.error(`接口[${error.response.config.url}]请求异常：${error.response.data}`)
-            return Promise.reject(error)
+            return Promise.reject(new Error(error.response.data))
           }
-          if (error.response.data.code === Unauthorized) {
-            LogUtil.error(`接口[${error.response.config.url}]请求失败：Unauthorized`)
-            AppStorage.setOrCreate<string>(StorageKey.TOKEN, '')
-            router.replaceUrl({ url: 'pages/Login' })
+          // 可选链 + 显式判空
+          if (error.response.data?.code === Unauthorized) {
+            logger.error(`接口[${error.response.config?.url}]请求失败：Unauthorized`)
             return Promise.reject(new Error(`${Unauthorized}`))
           }
-          LogUtil.error(`接口[${error.response.config.url}]请求失败：${error.response.data?.message}`)
+          logger.error(`接口[${error.response.config?.url}]请求失败：${error.response.data?.message ?? 'unknown'}`)
           return Promise.reject(error)
         } else {
-          LogUtil.error(`接口请求异常：${error.message}`)
+          logger.error(`接口请求异常：${error.message}`)
           return Promise.reject(error)
         }
       }

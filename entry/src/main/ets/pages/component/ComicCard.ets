@@ -1,17 +1,20 @@
-import { LogUtil } from '@pura/harmony-utils'
-import { PreferenceStorageKey } from '../../utils/Preference'
-import { ImageKnifeComponent } from '@ohos/imageknife'
+import { ImageKnifeComponentV2 } from '@ohos/imageknifepro'
+import { PreferenceManager } from '../../utils/preference/Settings';
+import { ComicCardInterface } from '../../common/Model';
+import { createLogger } from '../../utils/Logger';
 
-@Component
+const logger = createLogger('ComicCard')
+
+@ComponentV2
 export default struct ComicCard {
-  @StorageProp(PreferenceStorageKey.PRIVACY_MODE) privacyMode: boolean = false
-  @Consume('pageStack') pageStack: NavPathStack;
-  @Prop comic: ComicCardInterface
+
+  @Param @Require comic: ComicCardInterface
+  @Event onCardClick: (comic: ComicCardInterface) => void
 
   build() {
     Column() {
       Column() {
-        ImageKnifeComponent({
+        ImageKnifeComponentV2({
           imageKnifeOption: {
             loadSrc: this.comic.image,
             placeholderSrc: $r('app.media.loading'),
@@ -21,7 +24,7 @@ export default struct ComicCard {
           .height(160)
       }
       .borderRadius(6)
-      .foregroundBlurStyle(this.privacyMode ? BlurStyle.Thin : BlurStyle.NONE)
+      .foregroundBlurStyle(PreferenceManager.privacy_mode ? BlurStyle.Thin : BlurStyle.NONE)
 
       Text(this.comic.title)
         .textAlign(TextAlign.Center)
@@ -45,14 +48,8 @@ export default struct ComicCard {
       offsetY: 15
     })
     .onClick(() => {
-      LogUtil.info(`点击了本子：${this.comic.id} - ${this.comic.title}`)
-      this.pageStack.pushPathByName('ComicDetail', this.comic)
+      logger.info(`点击了本子：${this.comic.id} - ${this.comic.title}`)
+      this.onCardClick(this.comic)
     })
   }
-}
-
-export interface ComicCardInterface {
-  id: string
-  image: string
-  title: string
 }

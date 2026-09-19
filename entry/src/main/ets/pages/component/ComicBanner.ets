@@ -1,75 +1,124 @@
-import { LogUtil } from '@pura/harmony-utils';
 import { ComicDetailInfo } from '../../api/models';
-import { StorageKey } from '../../common/Consts';
-import { PreferenceStorageKey } from '../../utils/Preference';
-import { ComicCardInterface } from './ComicCard';
+import { ComicCardInterface, ComicListAttribute } from '../../common/Model';
 import { ToastUtil } from '../../utils/ToastUtils';
 import { ConfigurationConstant } from '@kit.AbilityKit';
-import { BaseDataSource } from '../../common/BaseDataSource';
 import { HomeBannerBannerMargin, HomeBannerDisplayCount } from '../../utils/breakpoint/BreakPoint';
-import { ComicListAttribute } from './ComicList';
+import { PreferenceManager } from '../../utils/preference/Settings';
+import { PicState } from '../../entryability/AppState';
+import { createLogger } from '../../utils/Logger';
 
-@Component
+const logger = createLogger('ComicBanner')
+
+// MVVM: ViewModel 层
+@ObservedV2
+class ComicBannerViewModel {
+  @Trace comics: ComicDetailInfo[] = [];
+  @Trace isLoading: boolean = false;
+  @Trace isEnd: boolean = false;
+
+  private page: number = 1;
+  private maxPage: number = 1;
+  private attr: ComicListAttribute | null = null;
+
+  init(attr: ComicListAttribute) {
+    this.attr = attr;
+    this.loadComics();
+  }
+
+  loadComics() {
+    logger.debug('Banner ViewModel 开始加载远程数据');
+    this.loadRemote();
+  }
+
+  private async loadRemote() {
+    if (!this.attr || !this.attr.api) return;
+    this.isLoading = true;
+
+    try {
+      const res = await this.attr.api(this.page, this.attr.sort, this.attr.param1, this.attr.param2);
+      ToastUtil.animateTo({ duration: 500 }, () => {
+        this.comics = res.comics.docs;
+      });
+      logger.debug(`Banner ViewModel 加载第${this.page}页，共${res.comics.docs.length}条`);
+      this.page = res.comics.page;
+      this.maxPage = res.comics.pages;
+    } catch (error) {
+      logger.error(`Banner ViewModel 加载失败: ${JSON.stringify(error)}`);
+    } finally {
+      logger.debug('Banner ViewModel 加载远程数据结束');
+      ToastUtil.animateTo({ duration: 500 }, () => {
+        this.isLoading = false;
+      });
+    }
+  }
+}
+
+@ComponentV2
 export default struct ComicBanner {
+  @Param @Require attr: ComicListAttribute
+  @Param showFilter: boolean = false
+  @Param canSwipe: boolean = true
+  @Param refreshTick: number = 0    // 刷新信号：递增触发重新加载
+  @Event onBannerItemClick: (comic: ComicCardInterface) => void
 
-  @StorageLink('currentColorMode') currentMode: number = ConfigurationConstant.ColorMode.COLOR_MODE_LIGHT
-  @StorageProp(PreferenceStorageKey.PRIVACY_MODE) privacyMode: boolean = false
-  @StorageProp(PreferenceStorageKey.IMAGE_API) imageApi: string = ''
-  @StorageProp(StorageKey.CATEGORY) category: string[] = []
-  @StorageLink(StorageKey.FILTER_CATEGORY) filterCategory: string[] = []
-  @StorageLink('currentWidthBreakpoint') widthBp: WidthBreakpoint = 1;
-  @StorageLink('currentHeightBreakpoint') heightBp: HeightBreakpoint = 0;
-  @Consume('pageStack') pageStack: NavPathStack
-  @Prop showFilter: boolean = false
-  @State isLoading: boolean = false;
-  @Prop canSwipe: boolean = true
-  @State isEnd: boolean = false;
-  @State maxPage: number = 1
-  @State total: number = 0
-  @State page: number = 1
-  @Prop attr: ComicListAttribute
+  @Local viewModel: ComicBannerViewModel = new ComicBannerViewModel();
 
-  @State comics: BannerDataSource = new BannerDataSource([])
   private scroll: SwiperController = new SwiperController()
 
   aboutToAppear() {
-    this.loadComics()
+    this.viewModel.init(this.attr);
+  }
+
+  @Monitor('refreshTick')
+  onRefreshTick() {
+    this.viewModel.loadComics()
   }
 
   build() {
-    Swiper() {
-      LazyForEach(this.comics, (item: ComicDetailInfo) => {
-        this.BannerItem(item)
-      }, (item: ComicDetailInfo) => item.created_at)
-    }.loop(true)
+    // Swiper 容器
+    Swiper(this.scroll) {
+      Repeat<ComicDetailInfo>(this.viewModel.comics)
+        .each((obj: RepeatItem<ComicDetailInfo>) => {
+          this.BannerItem(obj.item)
+        })
+        // 配置虚拟滚动选项
+        .virtualScroll({})
+    }
+    .loop(true)
     .width('100%')
     .itemSpace(9)
     .autoPlay(true)
     .interval(6000)
     .indicator(false)
-    .prevMargin(HomeBannerBannerMargin(this.widthBp))
-    .nextMargin(HomeBannerBannerMargin(this.widthBp))
-    .displayCount(HomeBannerDisplayCount(this.widthBp))
+    .prevMargin(HomeBannerBannerMargin(PicState.widthBp))
+    .nextMargin(HomeBannerBannerMargin(PicState.widthBp))
+    .displayCount(HomeBannerDisplayCount(PicState.widthBp))
+    .cachedCount(2)
   }
 
-  // 轮播图项
-  @Builder BannerItem(comic: ComicDetailInfo) {
+  // 轮播图项 Builder
+  @Builder
+  BannerItem(comic: ComicDetailInfo) {
     Stack({ alignContent: Alignment.BottomStart }) {
-      // 封面
-      Image(`${this.imageApi}${comic.thumb.path}`)
+      Image(`${PreferenceManager.image_api}${comic.thumb.path}`)
         .layoutWeight(1)
         .borderRadius(16)
         .aspectRatio(1.75)
         .objectFit(ImageFit.Cover)
-        .alt($r('app.media.loading')) // 占位图
-        .shadow({ radius: 16, color: this.currentMode === ConfigurationConstant.ColorMode.COLOR_MODE_DARK ? '#000000' : '#aaaaaa', offsetX: 6, offsetY: 6 })
-      // 遮罩
+        .alt($r('app.media.loading'))
+        .shadow({
+          radius: 16,
+          color: PicState.currentColorMode === ConfigurationConstant.ColorMode.COLOR_MODE_DARK ? '#000000' : '#aaaaaa',
+          offsetX: 6,
+          offsetY: 6
+        })
+
       Row()
         .width('100%')
         .borderRadius(16)
         .aspectRatio(1.75)
-        .backgroundColor(this.currentMode === ConfigurationConstant.ColorMode.COLOR_MODE_DARK ? '#80000000' : '#40000000')
-      // 标题
+        .backgroundColor(PicState.currentColorMode === ConfigurationConstant.ColorMode.COLOR_MODE_DARK ? '#80000000' : '#40000000')
+
       Text(comic.title)
         .fontColor(Color.White)
         .fontSize(16)
@@ -79,77 +128,15 @@ export default struct ComicBanner {
         .alignSelf(ItemAlign.Start)
     }
     .padding({ top: 16, bottom: 16 })
-    .foregroundBlurStyle(this.privacyMode ? BlurStyle.Thin : BlurStyle.NONE)
+    .foregroundBlurStyle(PreferenceManager.privacy_mode ? BlurStyle.Thin : BlurStyle.NONE)
     .onClick(() => {
-      let comics: ComicCardInterface = {
+      let comicCard: ComicCardInterface = {
         id: comic._id,
-        image: `${this.imageApi}${comic.thumb.path}`,
+        image: `${PreferenceManager.image_api}${comic.thumb.path}`,
         title: comic.title
       }
-      this.pageStack.pushPathByName('ComicDetail', comics)
+      this.onBannerItemClick(comicCard)
     })
   }
 
-  loadComics() {
-    LogUtil.debug('Banner 加载远程数据')
-    this.loadRemote()
-  }
-
-  loadRemote() {
-    if (this.attr.api !== undefined) {
-      this.attr.api(this.page, this.attr.sort, this.attr.param1, this.attr.param2)
-        .then((res) => {
-          ToastUtil.animateTo({ duration: 500 }, () => {
-            this.comics.pushData(res.comics.docs)
-          })
-          LogUtil.debug(`Banner 加载第${this.page}页，共${res.comics.docs.length}条`)
-          this.page = res.comics.page
-          this.maxPage = res.comics.pages
-          this.total = res.comics.total
-        })
-        .finally(() => {
-          LogUtil.debug('Banner 加载远程数据结束')
-          ToastUtil.animateTo({ duration: 500 }, () => {
-            this.isLoading = false
-          })
-        })
-    }
-  }
-
-}
-
-class BannerDataSource extends BaseDataSource<ComicDetailInfo> {
-  private dataArray: ComicDetailInfo[] = []
-
-  public totalCount(): number {
-    return this.dataArray.length
-  }
-
-  public getData(index: number): ComicDetailInfo {
-    return this.dataArray[index]
-  }
-
-  public addData(index: number, data: ComicDetailInfo): void {
-    this.dataArray.splice(index, 0, data)
-    this.notifyDataAdd(index)
-  }
-
-  public pushData(data: ComicDetailInfo[]): void {
-    this.dataArray = data
-    console.log(`Banner 推送数据：${data.length}个，总共：${this.dataArray.length}个`)
-    this.notifyDataAdd(this.dataArray.length - 1)
-  }
-
-  // 删除全部数据
-  public clear(): void {
-    this.empty()
-    this.refresh()
-  }
-
-  public empty(): void {
-    this.dataArray = []
-  }
-  public refresh(): void {
-    this.notifyDataReload()
-  }
 }

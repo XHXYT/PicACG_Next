@@ -1,6 +1,6 @@
 import { SortType } from '../api/models'
-import { SearchType } from '../pages/view/Comics'
-import { PreferenceItem } from '../utils/Preference'
+import { SearchType } from '../common/Model'
+import { PreferenceItem } from './Model'
 
 const Host = 'picaapi.picacomic.com'
 const NewChatUrl = 'https://live-server.bidobido.xyz/'
@@ -16,14 +16,14 @@ const Platform = 'android'
 
 enum Api {
   Origin = 'https://picaapi.picacomic.com/',
-  Proxy = 'https://api.go2778.com/',
+  Proxy = 'https://picaapi.go2778.com/',
 }
 
 enum ImageApi {
   TriageOne = 'https://s3.picacomic.com/static/',
   TriageTwo = 'https://s2.picacomic.com/static/',
   TriageThree = 'https://storage1.picacomic.com/static/',
-  ProxyOne = 'https://pica.luxcis.xyz/static/',
+  ProxyOne = 'https://storage-b.diwodiwo.xyz/static/',
   ProxyTwo = 'https://storage.diwodiwo.xyz/static/',
 }
 
@@ -56,23 +56,23 @@ const LocalCategories: LocalCategory[] = [
   {
     title: '排行榜',
     img: $r('app.media.cat_leaderboard'),
-    router: 'Leaderboard'
+    router: 'leaderboard'
   },
   {
     title: '哔咔留言板',
     img: $r('app.media.cat_forum'),
-    router: 'Comments'
+    router: 'comments'
   },
   {
     title: '最近更新',
     img: $r('app.media.cat_latest'),
-    router: 'Comics',
+    router: 'comics',
     param: { type: SearchType.Category, title: '最近更新' }
   },
   {
     title: '随机本子',
     img: $r('app.media.cat_random'),
-    router: 'Comics',
+    router: 'comics',
     param: { type: SearchType.Random, title: '随机本子' }
   }
 ]

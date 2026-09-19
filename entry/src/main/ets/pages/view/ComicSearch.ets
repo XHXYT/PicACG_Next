@@ -1,56 +1,64 @@
 import { LogUtil, RandomUtil } from '@pura/harmony-utils';
-import { StorageKey } from '../../common/Consts';
-import { BackType, TitleBar, TitleType } from '../component/TitleBar';
-import { ComicListOptions, SearchType } from './Comics';
 import { Chip, ChipSize } from '@ohos.arkui.advanced.Chip';
 import { LengthUnit } from '@kit.ArkUI';
 import { keywords } from '../../api/comic';
+import { ComicListOptions, SearchType } from '../../common/Model'
+import { PicState } from '../../entryability/AppState';
+
 
 @Builder
 export function ComicSearchBuilder(name: string, param: Object) {
   ComicSearch()
 }
 
-@Component
-export default struct ComicSearch {
-  // 状态栏高度
-  @StorageProp('topRectHeight') topRectHeight: number = 0
-  // 导航条高度
-  @StorageProp('bottomRectHeight') bottomRectHeight: number = 0
-  @StorageProp(StorageKey.KEYWORDS) keywords: string[] = []
-  @StorageLink(StorageKey.SEARCH_HISTORY) searchHistory: string[] = []
-  @Consume('pageStack') pageStack: NavPathStack
-  @State refreshRotateAngle: number = 0
-  @State placeholder: string = ''
 
+@ComponentV2
+export default struct ComicSearch {
+
+  @Local searchHistory: string[] = []
+  @Local refreshRotateAngle: number = 0
+  @Local placeholder: string = ''
+  @Local searchText: string = ''
+
+  private pageInfos: NavPathStack = new NavPathStack()
 
   aboutToAppear(): void {
-    this.placeholder = this.keywords[RandomUtil.getRandomNumber(0, this.keywords.length)]
+    this.placeholder = PicState.keywords[RandomUtil.getRandomNumber(0, PicState.keywords.length)]
   }
 
   build() {
     NavDestination() {
       // 搜索栏
-      TitleBar({
-        titleBarColor: Color.White,
-        statusBarColor: Color.White,
-        leftBackType: BackType.NONE,
-        leftBackFillColor: $r('app.color.common_button_background_light'),
-        leftOnClick: () => {
-          this.pageStack.pop()
-        },
-        centerLeftPadding: 50,
-        centerType: TitleType.SEARCH,
-        searchPlaceholder: this.placeholder,
-        searchButtonText: "搜索",
-        searchButtonOptions: {
-          fontColor: $r('app.color.common_button_background_light')
-        },
-        onSubmitSearch: (value) => {
-          this.goToSearch(value)
-        },
-        titleBarRightPadding: 20
-      })
+      Row({ space: 10 }) {
+        // 返回按钮
+        Button() {
+          Image($r('app.media.ic_public_arrow_left'))
+            .width(26)
+            .height(26)
+            .fillColor($r('sys.color.font_primary'))
+        }
+        .backgroundColor(Color.Transparent)
+        .margin({ left: 6 })
+        .onClick(() => {
+          this.pageInfos.pop(true)
+        })
+
+        Search({ placeholder: this.placeholder })
+          .layoutWeight(1)
+          .height(40)
+          .searchButton('搜索', { fontColor: $r('app.color.common_button_background_light') })
+          .caretStyle({ color: $r('app.color.common_button_background_light') })
+          .onChange((value: string) => {
+            this.searchText = value
+          })
+          .onSubmit((value: string) => {
+            this.goToSearch(value)
+          })
+      }
+      .width('100%')
+      .height(50)
+      .alignItems(VerticalAlign.Center)
+      .padding({ left: 6, right: 12 })
       // 搜索发现 & 搜索历史
       Column() {
         Column() {
@@ -86,7 +94,7 @@ export default struct ComicSearch {
               animateTo({ duration: 1000 }, () => {
                 this.refreshRotateAngle += 360
                 keywords().then(res => {
-                  this.keywords = res.keywords
+                  PicState.keywords = res.keywords
                 })
               })
             })
@@ -100,7 +108,7 @@ export default struct ComicSearch {
               cross: { value: 10, unit: LengthUnit.VP }
             }
           }) {
-            ForEach(this.keywords, (key: string) => {
+            ForEach(PicState.keywords, (key: string) => {
               Chip({
                 label: {
                   text: key,
@@ -185,7 +193,7 @@ export default struct ComicSearch {
       .width('100%')
       .margin({ top: 15 })
       .padding({
-        bottom: this.bottomRectHeight,
+        bottom: PicState.bottomRectHeight,
         left: 10,
         right: 10
       })
@@ -193,8 +201,12 @@ export default struct ComicSearch {
     }.width('100%').height('100%')
     .mode(NavDestinationMode.STANDARD)
     .hideTitleBar(true)
+    .backgroundColor($r('app.color.start_window_background'))
     .padding({
-      top: this.topRectHeight
+      top: PicState.topRectHeight
+    })
+    .onReady((ctx) => {
+      this.pageInfos = ctx.pathStack
     })
   }
 
@@ -207,6 +219,6 @@ export default struct ComicSearch {
       this.searchHistory.splice(this.searchHistory.indexOf(key), 1)
     }
     this.searchHistory.push(key)
-    this.pageStack.pushPathByName('Comics', { type: SearchType.Custom, key: key } as ComicListOptions)
+    this.pageInfos.pushPathByName('Comics', { type: SearchType.Custom, key: key } as ComicListOptions)
   }
 }

@@ -10,39 +10,37 @@ import {
 } from '../../api/comic'
 import { SortType } from '../../api/models'
 import { SortItems } from '../../common/Config'
-import { PreferenceItem } from '../../utils/Preference'
-import ComicList, { ComicListAttribute } from '../component/ComicList'
-import { BackType, TitleBar, TitleType } from '../component/TitleBar'
+import ComicList from '../component/ComicList'
+import { TitleBar, TitleType } from '../component/TitleBar'
 import { SymbolGlyphModifier } from '@kit.ArkUI'
-import { StorageKey } from '../../common/Consts'
 import HalfModal from '../component/HalfModal'
+import { ComicListAttribute, ComicListOptions, PreferenceItem } from '../../common/Model'
+import { SearchType } from '../../common/Model'
+import { PicState } from '../../entryability/AppState'
 
 @Builder
 export function ComicsBuilder(name: string, param: Object) {
   Comics()
 }
 
-@Component
-export default struct Comics {
-  // 状态栏高度
-  @StorageProp('topRectHeight') topRectHeight: number = 0
-  // 导航栏高度
-  @StorageProp('bottomRectHeight') bottomRectHeight: number = 0
-  // 背景模糊
-  @StorageLink('foregroundBlur') foregroundBlurMode: boolean = false
-  @StorageLink(StorageKey.CATEGORY) category: string[] = []
-  @Consume('pageStack') pageStack: NavPathStack
-  @State searchParam: ComicListOptions | undefined = undefined
-  @State attr: ComicListAttribute | undefined = undefined
-  @State @Watch('sortChange') sort: SortType = SortType.Newest
-  @State @Watch('categoryChange') filterCategory: string[] = []
-  @State showCategory: boolean = false
-  @State tempSelectedCategory: string[] = []
 
+@ComponentV2
+export default struct Comics {
+
+  private pageInfos: NavPathStack = new NavPathStack()
+  @Local searchParam: ComicListOptions | undefined = undefined
+  @Local attr: ComicListAttribute | undefined = undefined
+  @Local sort: SortType = SortType.Newest
+  @Local filterCategory: string[] = []
+  @Local showCategory: boolean = false
+  @Local tempSelectedCategory: string[] = []
+
+  @Monitor('sort')
   sortChange() {
     this.buildAttr()
   }
 
+  @Monitor('filterCategory')
   categoryChange() {
     this.buildAttr()
   }
@@ -123,32 +121,27 @@ export default struct Comics {
       Column() {
         // 标题栏
         TitleBar({
-          titleBarColor: $r('app.color.start_window_background'),
-          statusBarColor: $r('app.color.start_window_background'),
-          centerType: TitleType.TEXT,
-          centerText: this.searchParam?.title ? this.searchParam?.title : this.searchParam?.key,
-          centerTextColor: $r('app.color.common_button_background_light'),
-          leftImageHeight: 28,
-          leftBackType: BackType.NONE,
-          leftBackFillColor: $r('app.color.common_button_background_light'),
-          leftOnClick: () => {
-            this.pageStack.pop()
-          },
           rightType: TitleType.CUSTOM,
           rightCustomView: () => {
             this.rightBuilder()
-          },
-          titleBarRightPadding: 0
+          }
         })
         // 漫画列表
-        ComicList({ attr: this.attr, canSwipe: false, showFilter: true })
+        ComicList({
+          attr: this.attr,
+          canSwipe: false,
+          showFilter: true,
+          onItemClick: (comic) => {
+            this.pageInfos.pushPathByName('comic_detail', comic)
+          }
+        })
       }
       .height('100%')
       .width('100%')
       .padding({
         left: 10,
         right: 10,
-        top: this.topRectHeight
+        top: PicState.topRectHeight
       })
 
       HalfModal({
@@ -173,6 +166,7 @@ export default struct Comics {
     .mode(NavDestinationMode.STANDARD)
     .backgroundColor($r('app.color.start_window_background'))
     .onReady((context: NavDestinationContext) => {
+      this.pageInfos = context.pathStack
       this.searchParam = context.pathInfo.param as ComicListOptions
       this.buildAttr()
     })
@@ -182,7 +176,7 @@ export default struct Comics {
   categoryFilter() {
     Column() {
       GridRow() {
-        ForEach(this.category, (key: string) => {
+        ForEach(PicState.category, (key: string) => {
           GridCol({
             span: 6
           }) {
@@ -237,7 +231,7 @@ export default struct Comics {
           })
         })
     }.width('100%')
-    .margin({ bottom: this.bottomRectHeight })
+    .margin({ bottom: PicState.bottomRectHeight })
     .padding({ left: 20, right: 20 })
   }
 
@@ -290,7 +284,7 @@ export default struct Comics {
         .fontColor([$r('app.color.common_button_background_light')])
         .fontSize(21)
         .onClick(() => {
-          LogUtil.info('category: ', this.category.toString())
+          LogUtil.info('category: ', PicState.category.toString())
           this.showCategory = true
         })
       // 搜索
@@ -298,23 +292,8 @@ export default struct Comics {
         .fontColor([$r('app.color.common_button_background_light')])
         .fontSize(23)
         .onClick(() => {
-          this.pageStack.pushPath({ name: 'ComicSearch' })
+          this.pageInfos.pushPath({ name: 'ComicSearch' })
         })
     }
   }
-}
-
-export interface ComicListOptions {
-  type: SearchType
-  title?: string
-  key?: string
-}
-
-export enum SearchType {
-  Random,
-  Category,
-  Custom,
-  Uploader,
-  Author,
-  Team
 }

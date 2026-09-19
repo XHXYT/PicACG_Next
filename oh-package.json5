@@ -5,8 +5,8 @@
     "@ohos/axios": "^2.2.4",
     "@pura/harmony-utils": "^1.2.4",
     "@ohos/crypto-js": "^2.0.4",
-    "@ohos/imageknife": "^3.1.0",
-    "@xqw/sliding-tabs": "^1.1.1"
+    "@xqw/sliding-tabs": "^1.1.1",
+    "@ohos/imageknifepro": "^1.0.17"
   },
   "devDependencies": {
     "@ohos/hypium": "1.0.19",

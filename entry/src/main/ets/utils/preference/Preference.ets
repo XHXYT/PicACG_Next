@@ -1,5 +1,5 @@
-import { Api, AppChannel, ImageApi, ImageQuality } from '../common/Config'
-import { HttpUtil } from './Http'
+import { Api, AppChannel, ImageApi, ImageQuality } from '../../common/Config'
+import { HttpUtil } from '../Http'
 import { bundleManager } from '@kit.AbilityKit'
 
 export interface PreferenceItem {
@@ -52,12 +52,6 @@ export class PreferenceManager {
   static init() {
     // Api地址
     PersistentStorage.persistProp<Api>(PreferenceStorageKey.API, Api.Proxy)
-    PersistentStorage.persistProp<ImageApi>(PreferenceStorageKey.IMAGE_API, ImageApi.ProxyOne)
-    HttpUtil.init()
-    // 画质
-    PersistentStorage.persistProp<ImageQuality>(PreferenceStorageKey.IMAGE_QUALITY, ImageQuality.Original)
-    // 分流
-    PersistentStorage.persistProp<AppChannel>(PreferenceStorageKey.APP_CHANNEL, AppChannel.One)
     // 隐私模式
     PersistentStorage.persistProp<boolean>(PreferenceStorageKey.PRIVACY_MODE, false)
     // 颜色模式
@@ -66,14 +60,6 @@ export class PreferenceManager {
     PersistentStorage.persistProp<boolean>(PreferenceStorageKey.AUTO_UPDATE, false)
   }
 
-  static setApi(api: Api) {
-    AppStorage.setOrCreate<Api>(PreferenceStorageKey.API, api)
-    HttpUtil.init()
-  }
-
-  static setImageApi(api: ImageApi) {
-    AppStorage.setOrCreate<ImageApi>(PreferenceStorageKey.IMAGE_API, api)
-  }
 
   static setQuality(quality: ImageQuality) {
     AppStorage.setOrCreate<ImageQuality>(PreferenceStorageKey.IMAGE_QUALITY, quality)

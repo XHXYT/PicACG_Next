@@ -1,12 +1,13 @@
-import { BackType, TitleBar, TitleType } from '../component/TitleBar'
+import { TitleBar } from '../component/TitleBar'
 import ComicList from '../component/ComicList'
 import { ComicResponse, knightLeaderboard, leaderboard } from '../../api/comic'
 import { TimeType, User } from '../../api/models'
-import { SlidingTabsV1 } from '@xqw/sliding-tabs'
-import { SlidingTabControllerV1 } from '@xqw/sliding-tabs/src/main/ets/v1/SlidingTabControllerV1'
-import { ImageKnifeComponent } from '@ohos/imageknife'
-import { PreferenceStorageKey } from '../../utils/Preference'
-import { ComicListOptions, SearchType } from './Comics'
+import { SlidingTabControllerV2 } from '@xqw/sliding-tabs/src/main/ets/v2/SlidingTabControllerV2'
+import { ImageKnifeComponentV2 } from '@ohos/imageknifepro'
+import { SlidingTabsV2 } from '@xqw/sliding-tabs'
+import { ComicListOptions, SearchType } from '../../common/Model'
+import { PicState } from '../../entryability/AppState'
+import { buildImageUrl } from '../../common/Consts'
 
 @Builder
 export function LeaderboardBuilder(name: string, param: Object) {
@@ -16,20 +17,17 @@ export function LeaderboardBuilder(name: string, param: Object) {
 /**
  * 排行榜
  */
-@Component
+@ComponentV2
 export default struct Leaderboard {
-  // 状态栏高度
-  @StorageProp('topRectHeight') topRectHeight: number = 0
-  // 导航栏高度
-  @StorageProp('bottomRectHeight') bottomRectHeight: number = 0
-  @StorageProp(PreferenceStorageKey.IMAGE_API) imageApi: string = ''
-  @Consume('pageStack') pageStack: NavPathStack
-  @State currentIndex: number = 0
-  @State tabs: string[] = ['日榜', '周榜', '月榜', '骑士榜']
-  @State knights: User[] = []
-  @State isRefreshing: boolean = true
+
+  @Local currentIndex: number = 0
+  @Local tabs: string[] = ['日榜', '周榜', '月榜', '骑士榜']
+  @Local knights: User[] = []
+  @Local isRefreshing: boolean = true
+  @Local pageInfos: NavPathStack = new NavPathStack()
+
   swiperController = new SwiperController()
-  tabController = new SlidingTabControllerV1(this.swiperController)
+  tabController: SlidingTabControllerV2 = new SlidingTabControllerV2()
 
   api(t: TimeType): Promise<ComicResponse> {
     return new Promise<ComicResponse>((resolve, reject) => {
@@ -54,26 +52,19 @@ export default struct Leaderboard {
       Column() {
         // 标题栏
         TitleBar({
-          titleBarColor: $r('app.color.start_window_background'),
-          statusBarColor: $r('app.color.start_window_background'),
-          centerLeftPadding: 60,
-          centerType: TitleType.TEXT,
-          centerText: '排行榜',
-          centerTextColor: $r('app.color.common_button_background_light'),
-          leftBackType: BackType.NONE,
-          leftBackFillColor: $r('app.color.common_button_background_light'),
-          leftOnClick: () => {
-            this.pageStack.pop()
-          },
+          title: '排行榜',
         })
 
         Column() {
           // tab栏
-          SlidingTabsV1({
-            index: this.currentIndex,
+          SlidingTabsV2({
             tabs: this.tabs,
             barMode: 'fixed',
-            controller: this.tabController,
+            tabController: this.tabController,
+            onChange: (index: number) => {
+              this.currentIndex = index;
+              this.swiperController.changeIndex(index)
+            },
             tabStyle: {
               fontColor: Color.Gray,
               fontColorSelect: $r('app.color.common_button_background_light'),
@@ -94,7 +85,10 @@ export default struct Leaderboard {
                     return this.api(TimeType.Hour24)
                   }
                 },
-                canSwipe: false
+                canSwipe: false,
+                onItemClick: (comic) => {
+                  this.pageInfos.pushPathByName('comic_detail', comic)
+                }
               })
             }
             .width('100%').height('100%')
@@ -106,7 +100,10 @@ export default struct Leaderboard {
                     return this.api(TimeType.Day7)
                   }
                 },
-                canSwipe: false
+                canSwipe: false,
+                onItemClick: (comic) => {
+                  this.pageInfos.pushPathByName('comic_detail', comic)
+                }
               })
             }
             .width('100%').height('100%')
@@ -118,7 +115,10 @@ export default struct Leaderboard {
                     return this.api(TimeType.Day30)
                   }
                 },
-                canSwipe: false
+                canSwipe: false,
+                onItemClick: (comic) => {
+                  this.pageInfos.pushPathByName('comic_detail', comic)
+                }
               })
             }
             .width('100%').height('100%')
@@ -131,9 +131,9 @@ export default struct Leaderboard {
                       Row() {
                         // 骑士榜 =>头像
                         Column() {
-                          ImageKnifeComponent({
+                          ImageKnifeComponentV2({
                             imageKnifeOption: {
-                              loadSrc: this.imageApi + knight.avatar?.path,
+                              loadSrc: knight.avatar ? buildImageUrl(knight.avatar) : '',
                               border: {
                                 radius: 50,
                                 width: 2,
@@ -180,7 +180,7 @@ export default struct Leaderboard {
                       .width('100%')
                       .height(80)
                       .onClick(() => {
-                        this.pageStack.pushPath({
+                        this.pageInfos.pushPath({
                           name: 'Comics',
                           param: {
                             type: SearchType.Uploader,
@@ -240,13 +240,17 @@ export default struct Leaderboard {
       .width('100%')
       .backgroundColor($r('app.color.start_window_background'))
       .padding({
-        top: this.topRectHeight,
-        bottom: this.bottomRectHeight,
+        top: PicState.topRectHeight,
+        bottom: PicState.bottomRectHeight,
         left: 10,
         right: 10
       })
     }.backgroundColor($r('app.color.start_window_background'))
     .mode(NavDestinationMode.STANDARD)
     .hideTitleBar(true)
+    .onReady((ctx) => {
+      this.pageInfos = ctx.pathStack
+    })
   }
+
 }

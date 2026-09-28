@@ -1,8 +1,7 @@
 # PicACG_Next
 
 [![GitHub](https://img.shields.io/github/license/Luxcis/PicACG_Next)](https://raw.githubusercontent.com/Luxcis/PicACG_Next/master/LICENSE.txt)
-[![Release](https://img.shields.io/github/v/release/XHXYT/PicACG_Next)](https://github.com/XHXYT/PicACG_Next/releases)
-[![Build](https://github.com/XHXYT/PicACG_Next/actions/workflows/master.yml/badge.svg)](https://github.com/XHXYT/PicACG_Next/actions/workflows/master.yml)
+![HarmonyOS](https://img.shields.io/badge/HarmonyOS-ArkTS-green)
 
 - 哔咔漫画鸿蒙客户端，界面使用ArkTS
 - 该项目仅供技术研究使用，请勿用于其他用途
@@ -23,6 +22,6 @@
 - [GitHub Releases](https://github.com/XHXYT/PicACG_Next/releases/latest)：下载最新 `.hap` 安装包
 
 ## 感谢以下项目
-- [PicACG_Next](https://github.com/Luxcis/PicACG_Next)：本项目基于其二次开发
-  [![Readme Card](https://github-readme-stats.vercel.app/api/pin/?username=2024baibai&repo=PicaComic-Api)](https://github.com/2024baibai/PicaComic-Api)  
-  [![Readme Card](https://github-readme-stats.vercel.app/api/pin/?username=tonquer&repo=picacg-qt)](https://github.com/tonquer/picacg-qt)  
+- [![PicACG_Next](https://img.shields.io/badge/PicACG__Next-Luxcis-blue?logo=github)](https://github.com/Luxcis/PicACG_Next)：本项目基于其二次开发
+- [![PicaComic-Api](https://img.shields.io/badge/PicaComic--Api-2024baibai-blue?logo=github)](https://github.com/2024baibai/PicaComic-Api)
+- [![picacg-qt](https://img.shields.io/badge/picacg--qt-tonquer-blue?logo=github)](https://github.com/tonquer/picacg-qt)

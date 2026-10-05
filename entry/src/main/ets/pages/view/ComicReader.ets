@@ -43,6 +43,11 @@ export default struct ComicReader {
   @Local positionX: number = 0;
   @Local positionY: number = 0;
   @Local currentImageIndex: number = 0
+  // 章节图片总数（接口返回的 total，懒加载未拉完时也准确）
+  @Local totalImages: number = 0
+  // 滑块区域尺寸（onAreaChange 获取，用于进度数字块跟随滑块定位）
+  @Local sliderAreaWidth: number = 0
+  @Local sliderAreaHeight: number = 0
   @Local readerBrightness: number =
     PreferenceManager.reader_brightness >= 0 ? PreferenceManager.reader_brightness : 0.5
   // 亮度条尺寸信息（onAreaChange 回调获取，用于手势坐标换算）
@@ -318,27 +323,69 @@ export default struct ComicReader {
                 ))
               // 滑动条
               Column() {
-                Slider({
-                  value: $$this.currentImageIndex,
-                  max: this.images.length - 1,
-                  style: SliderStyle.OutSet,
-                  direction: Axis.Vertical
-                })
-                  .blockColor($r('app.color.custom_pink'))
-                  .trackColor($r('app.color.common_button_background_light'))
-                  .selectedColor($r('app.color.common_button_background_weight'))
-                  .showTips(true, `${this.currentImageIndex}`)
-                  .onChange((value: number, mode: SliderChangeMode) => {
-                    if (mode === SliderChangeMode.Begin) {
-                      this.isSliding = true
-                    }
-                    this.currentImageIndex = value
-                    // 拖动过程中即时定位，带动画会造成列表追赶滑块的顿挫感
-                    this.scroll.scrollToIndex(value, false)
-                    if (mode === SliderChangeMode.End) {
-                      this.isSliding = false
-                    }
+                Stack() {
+                  Slider({
+                    value: $$this.currentImageIndex,
+                    max: this.images.length - 1,
+                    style: SliderStyle.OutSet,
+                    direction: Axis.Vertical
                   })
+                    .width('100%')
+                    .height('100%')
+                    // 显式固定滑块尺寸，保证数字块定位公式与实际滑块行程一致
+                    .blockSize({ width: 20, height: 20 })
+                    .blockColor($r('app.color.custom_pink'))
+                    .trackColor($r('app.color.common_button_background_light'))
+                    .selectedColor($r('app.color.common_button_background_weight'))
+                    .onChange((value: number, mode: SliderChangeMode) => {
+                      if (mode === SliderChangeMode.Begin) {
+                        this.isSliding = true
+                      }
+                      this.currentImageIndex = value
+                      // 拖动过程中即时定位，带动画会造成列表追赶滑块的顿挫感
+                      this.scroll.scrollToIndex(value, false)
+                      if (mode === SliderChangeMode.End) {
+                        this.isSliding = false
+                      }
+                    })
+                  // 进度数字块：跟随滑块移动
+                  Row() {
+                    Text(`${this.currentImageIndex + 1}`)
+                      .fontSize(11)
+                      .fontColor(Color.White)
+                      .backgroundColor($r('app.color.custom_pink'))
+                      .borderRadius(9)
+                      .padding({ left: 6, right: 6, top: 2, bottom: 2 })
+                      .maxLines(1)
+                  }
+                  .width('100%')
+                  .height(20)
+                  .justifyContent(FlexAlign.End)
+                  .offset({
+                    x: -this.sliderAreaWidth / 2 - 14,
+                    // OUTSET 滑块行程两端各内缩 14vp（=max(轨道4, 滑块20+阴影4×2)/2），
+                    // 滑块中心 = 14 + ratio × (高度 − 28)，数字块中心须与之一致
+                    y: this.sliderAreaHeight > 28 ?
+                    (this.sliderRatio() - 0.5) * (this.sliderAreaHeight - 28) : 0
+                  })
+                  .hitTestBehavior(HitTestMode.None)
+                }
+                .width('100%')
+                .layoutWeight(1)
+                .onAreaChange((oldArea: Area, newArea: Area) => {
+                  this.sliderAreaWidth = newArea.width as number
+                  this.sliderAreaHeight = newArea.height as number
+                })
+
+                Text(`共${Math.max(this.totalImages, this.images.length)}页`)
+                  .fontSize(10)
+                  .minFontSize(8)
+                  .maxFontSize(10)
+                  .maxLines(1)
+                  .fontColor($r('app.color.common_button_background_light'))
+                  .textAlign(TextAlign.Center)
+                  .width('100%')
+                  .margin({ top: 4, bottom: 10 })
               }
               .width('10%')
               .height('100%')
@@ -735,6 +782,7 @@ export default struct ComicReader {
       ToastUtil.animateTo({ duration: 200 }, () => {
         this.title = res.ep.title
         this.maxPage = res.pages.pages
+        this.totalImages = res.pages.total
         res.pages.docs.forEach((c, i) => {
           this.images.push(`${PreferenceManager.image_api}${c.media.path}`)
         })
@@ -781,6 +829,13 @@ export default struct ComicReader {
         }
       })
     })
+  }
+
+  /**
+   * 滑块进度比例（0~1），用于进度数字块跟随滑块定位
+   */
+  private sliderRatio(): number {
+    return this.images.length > 1 ? Math.min(this.currentImageIndex / (this.images.length - 1), 1) : 0
   }
 
   /**

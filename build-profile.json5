@@ -5,13 +5,13 @@
         "name": "default",
         "type": "HarmonyOS",
         "material": {
-          "certpath": "C:\\Users\\Ya\\.ohos\\config\\default_PicACG_3WIjKPr5r3KcNO-o1MM6shamlbLLBfQnUPMIaJNrVU0=.cer",
-          "keyAlias": "debugKey",
-          "keyPassword": "0000001BED7BB66AE37717B4523C62688FAA6F2662E81D3721F91DBAA62B78EC20077CF85CCF617F9602AE",
-          "profile": "C:\\Users\\Ya\\.ohos\\config\\default_PicACG_3WIjKPr5r3KcNO-o1MM6shamlbLLBfQnUPMIaJNrVU0=.p7b",
+          "certpath": "",
+          "keyAlias": "",
+          "keyPassword": "",
+          "profile": "",
           "signAlg": "SHA256withECDSA",
-          "storeFile": "C:\\Users\\Ya\\.ohos\\config\\default_PicACG_3WIjKPr5r3KcNO-o1MM6shamlbLLBfQnUPMIaJNrVU0=.p12",
-          "storePassword": "0000001B656E75F37B15271CA09312E215D8C978FBD769FFD0374211CF0E9EE6486A11047B1E78F2A2A7ED"
+          "storeFile": "",
+          "storePassword": ""
         }
       }
     ],

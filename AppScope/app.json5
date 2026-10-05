@@ -2,8 +2,8 @@
   "app": {
     "bundleName": "com.picacomic.next",
     "vendor": "example",
-    "versionCode": 100200000,
-    "versionName": "1.2.0",
+    "versionCode": 100200100,
+    "versionName": "1.2.1",
     "icon": "$media:app_icon",
     "label": "$string:app_name"
   }

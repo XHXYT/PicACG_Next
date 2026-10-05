@@ -27,13 +27,25 @@ import { PreferenceManager } from './preference/Settings'
 import { KVDbUtil } from './preference/KVdbUtil'
 import { createLogger } from './Logger'
 import { DialogUtil } from '@pura/harmony-utils'
+import { ToastUtil } from './ToastUtils'
 import { PicState } from '../entryability/AppState'
+import { accountVM } from '../viewmodel/AccountViewModel'
 
 const logger = createLogger('HttpUtil')
+
+/** 静默重登响应：与 /auth/sign-in 返回结构一致 */
+interface SignInResponse {
+  token: string
+}
 
 export class HttpUtil {
   private static instance: AxiosInstance
   private static isShowTimeout: boolean = false
+  /** 静默重登单飞锁：并发多个 401 只触发一次重登 */
+  private static reloginTask: Promise<string> | undefined = undefined
+  /** 重登后重放请求的标记头：带此头的请求再次 401 时不再重试，避免死循环 */
+  private static readonly RETRIED_HEADER: string = 'X-Pica-Auth-Retried'
+  private static readonly SIGN_IN_URL: string = '/auth/sign-in'
 
   public static init() {
     HttpUtil.instance = axios.create(HttpUtil.defaultConfig())
@@ -169,6 +181,9 @@ export class HttpUtil {
           })
         }
         return Promise.reject(new Error(Timeout))
+      } else if (HttpUtil.isAuthExpired(error) && !HttpUtil.isSignInRequest(error) && !HttpUtil.isAuthRetried(error)) {
+        // token 已失效：静默重登后重放原请求（每个请求只重试一次）
+        return HttpUtil.handleUnauthorized(error)
       } else {
         if (error.response) {
           // 先把原始响应打出来，定位"服务器回了什么"
@@ -191,5 +206,97 @@ export class HttpUtil {
         }
       }
     })
+  }
+
+  /** 登录态是否失效：HTTP 401，或响应体 code 为 401 */
+  private static isAuthExpired(error: AxiosError<PicaResponse<ESObject>, ESObject>): boolean {
+    if (error.response === undefined) {
+      return false
+    }
+    if (error.response.status === Unauthorized) {
+      return true
+    }
+    return error.response.data?.code === Unauthorized
+  }
+
+  /** 登录接口本身返回 401 属于账密错误，不能再触发静默重登 */
+  private static isSignInRequest(error: AxiosError<PicaResponse<ESObject>, ESObject>): boolean {
+    if (error.response === undefined) {
+      return false
+    }
+    const url = error.response.config?.url
+    if (url === undefined) {
+      return false
+    }
+    return url.includes(HttpUtil.SIGN_IN_URL)
+  }
+
+  /** 该请求是否为重登后重放的请求（重放后再次 401 不再重试） */
+  private static isAuthRetried(error: AxiosError<PicaResponse<ESObject>, ESObject>): boolean {
+    if (error.response === undefined) {
+      return false
+    }
+    return error.response.config?.headers[HttpUtil.RETRIED_HEADER] === '1'
+  }
+
+  /** 静默重登（单飞）：并发多个 401 共享同一次重登结果 */
+  private static silentRelogin(): Promise<string> {
+    if (HttpUtil.reloginTask === undefined) {
+      HttpUtil.reloginTask = HttpUtil.doRelogin().finally(() => {
+        HttpUtil.reloginTask = undefined
+      })
+    }
+    return HttpUtil.reloginTask
+  }
+
+  /**
+   * 用当前账号保存的密码静默重登，换取新 token
+   * 失败说明登录态已无法自动恢复：清除本地 token（Index 自动切回登录页）并提示
+   */
+  private static async doRelogin(): Promise<string> {
+    try {
+      const account = accountVM.findCurrent()
+      if (account === undefined || !account.hasPassword()) {
+        throw new Error('当前账号未保存密码')
+      }
+      const password = await accountVM.getPassword(account)
+      if (password === '') {
+        throw new Error('密码解密失败')
+      }
+      const res = await HttpUtil.post<SignInResponse>(HttpUtil.SIGN_IN_URL, { email: account.username, password: password })
+      await KVDbUtil.putData(StorageKey.TOKEN, res.token)
+      await accountVM.updateCurrentToken(res.token)
+      PicState.token = res.token
+      logger.info('静默重登成功，登录态已刷新')
+      return res.token
+    } catch (e) {
+      const err = e as Error
+      logger.error(`静默重登失败: ${err.message}`)
+      await accountVM.clearActiveAccount()
+      ToastUtil.showToast({ message: '登录已过期，请重新登录' })
+      throw new Error(`${Unauthorized}`)
+    }
+  }
+
+  /** 401 统一处理：静默重登成功后重放原请求，失败则按登录失效抛出 */
+  private static async handleUnauthorized(error: AxiosError<PicaResponse<ESObject>, ESObject>): Promise<ESObject> {
+    if (error.response === undefined) {
+      return Promise.reject(new Error(`${Unauthorized}`))
+    }
+    const url = error.response.config?.url
+    try {
+      await HttpUtil.silentRelogin()
+    } catch (e) {
+      const err = e as Error
+      logger.error(`接口[${url}]静默重登未成功: ${err.message}`)
+      return Promise.reject(new Error(`${Unauthorized}`))
+    }
+    if (error.response.config === undefined) {
+      return Promise.reject(new Error(`${Unauthorized}`))
+    }
+    // 重放请求仍走请求拦截器：自动带上新 token 并重新签名
+    error.response.config.headers[HttpUtil.RETRIED_HEADER] = '1'
+    logger.info(`静默重登成功，重试接口[${url}]`)
+    return HttpUtil.instance.request<ESObject>(error.response.config)
   }
 }

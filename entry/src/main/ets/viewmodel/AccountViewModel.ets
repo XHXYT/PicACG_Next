@@ -95,6 +95,24 @@ export class AccountViewModel {
     return matched.length > 0 ? matched[0] : undefined
   }
 
+  /** 当前登录账号记录（未登录返回 undefined），供 token 失效静默重登使用 */
+  findCurrent(): AccountInfo | undefined {
+    if (this.currentUsername === '') {
+      return undefined
+    }
+    return this.find(this.currentUsername)
+  }
+
+  /** 静默重登成功后更新当前账号 token 并持久化 */
+  async updateCurrentToken(token: string): Promise<void> {
+    const acc = this.findCurrent()
+    if (acc === undefined) {
+      return
+    }
+    acc.token = token
+    await this.persist()
+  }
+
   /** 登录成功后调用：新增或更新账号记录（密码 AES 加密保存） */
   async addAccount(username: string, password: string, token: string): Promise<void> {
     try {

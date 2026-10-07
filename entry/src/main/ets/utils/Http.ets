@@ -38,6 +38,7 @@ interface SignInResponse {
   token: string
 }
 
+
 export class HttpUtil {
   private static instance: AxiosInstance
   private static isShowTimeout: boolean = false
@@ -131,7 +132,6 @@ export class HttpUtil {
   /**请求拦截器*/
   private static httpInterceptorsRequest() {
     HttpUtil.instance.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
-      // 对请求数据做点什么
       config.headers[StorageKey.TOKEN] = await KVDbUtil.getData(StorageKey.TOKEN, '')
       // 赋值到全局变量
       PicState.token = config.headers[StorageKey.TOKEN]
@@ -251,6 +251,7 @@ export class HttpUtil {
 
   /**
    * 用当前账号保存的密码静默重登，换取新 token
+   * 使用独立 axios 请求绕开请求拦截器，避免携带过期 token 干扰登录
    * 失败说明登录态已无法自动恢复：清除本地 token（Index 自动切回登录页）并提示
    */
   private static async doRelogin(): Promise<string> {
@@ -263,12 +264,25 @@ export class HttpUtil {
       if (password === '') {
         throw new Error('密码解密失败')
       }
-      const res = await HttpUtil.post<SignInResponse>(HttpUtil.SIGN_IN_URL, { email: account.username, password: password })
-      await KVDbUtil.putData(StorageKey.TOKEN, res.token)
-      await accountVM.updateCurrentToken(res.token)
-      PicState.token = res.token
-      logger.info('静默重登成功，登录态已刷新')
-      return res.token
+      // 用现有实例 + 临时清除 token 的方式，避免拦截器携带过期 token
+      const oldToken: string = await KVDbUtil.getData(StorageKey.TOKEN, '') as string
+      if (oldToken !== '') {
+        await KVDbUtil.deleteData(StorageKey.TOKEN)
+      }
+      try {
+        const res: SignInResponse = await HttpUtil.post<SignInResponse>(HttpUtil.SIGN_IN_URL,
+          { email: account.username, password: password }) as SignInResponse
+        await KVDbUtil.putData(StorageKey.TOKEN, res.token)
+        await accountVM.updateCurrentToken(res.token)
+        PicState.token = res.token
+        logger.info('静默重登成功，登录态已刷新')
+        return res.token
+      } finally {
+        const now: string = await KVDbUtil.getData(StorageKey.TOKEN, '') as string
+        if (now === '' && oldToken !== '') {
+          await KVDbUtil.putData(StorageKey.TOKEN, oldToken)
+        }
+      }
     } catch (e) {
       const err = e as Error
       logger.error(`静默重登失败: ${err.message}`)

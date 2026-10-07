@@ -130,7 +130,7 @@ export default struct LoginForm {
 
               TextInput({ placeholder: '密码', text: this.password })
                 .id('pwd')
-                .type(InputType.NEW_PASSWORD)
+                .type(InputType.Password)
                 .enterKeyType(EnterKeyType.Done)
                 .width('80%')
                 .onFocus(() => {

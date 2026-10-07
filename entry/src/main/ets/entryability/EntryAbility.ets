@@ -1,4 +1,5 @@
 import { AbilityConstant, common, Configuration, UIAbility, Want } from '@kit.AbilityKit';
+import { BusinessError } from '@kit.BasicServicesKit';
 import { window } from '@kit.ArkUI';
 import { bundleManager } from "@kit.AbilityKit";
 import { createLogger } from '../utils/Logger';
@@ -29,7 +30,10 @@ export default class EntryAbility extends UIAbility {
     PicState.bottomRectHeight = newAvoidance.bottom
     PicState.topRectHeight = newAvoidance.top
     PicState.leftAvoidWidth = newAvoidance.left
-    PicState.rightAvoidWidth = newAvoidance.right
+  }
+  // 窗口三键按钮区域变化监听
+  private onTitleButtonRectChange: (rect: window.TitleButtonRect) => void = (rect: window.TitleButtonRect) => {
+    PicState.rightAvoidWidth = rect.width + rect.right
   }
 
   // --- 生命周期 ---
@@ -80,6 +84,11 @@ export default class EntryAbility extends UIAbility {
       this.avoidManager.destroy();
       this.avoidManager = undefined;
     }
+    try {
+      _PicState.window?.off('windowTitleButtonRectChange', this.onTitleButtonRectChange)
+    } catch (error) {
+      logger.error(`WindowMode`, `Cleanup listener failed: ${error.message}`)
+    }
     logger.info('Lifecycle', 'EntryAbility onWindowStageWillDestroy');
   }
 
@@ -114,11 +123,17 @@ export default class EntryAbility extends UIAbility {
 
   private async initAccounts() {
     const savedToken = await KVDbUtil.getData<string>(StorageKey.TOKEN, '');
+    // 恢复已保存的账号列表与当前账号标记
+    await accountVM.load();
+    // token 存在但当前账号标记丢失或账号列表为空 → token 已不可用，清理掉
+    if (savedToken && (accountVM.currentUsername === '' || accountVM.accounts.length === 0)) {
+      await KVDbUtil.deleteData(StorageKey.TOKEN)
+      PicState.token = ''
+      return
+    }
     if (savedToken) {
       PicState.token = savedToken;
     }
-    // 恢复已保存的账号列表与当前账号标记
-    await accountVM.load();
   }
 
   private async initAppVersion() {
@@ -223,6 +238,13 @@ export default class EntryAbility extends UIAbility {
     } catch (e) {
       logger.error(`WindowMode`, `Listener failed: ${e.message}`)
     }
+
+    // 监听窗口三键按钮区域变化
+    try {
+      windowClass.on('windowTitleButtonRectChange', this.onTitleButtonRectChange)
+    } catch (error) {
+      logger.error(`WindowMode`, `TitleButtonRect listener failed: ${error.message}`)
+    }
   }
 
   // --- 辅助计算方法 ---
@@ -254,9 +276,29 @@ export default class EntryAbility extends UIAbility {
         PicState.windowMode = windowClass.isInFreeWindowMode()
         this.isFirstStart = false
       }
-      logger.info("WindowMode", `Current mode: ${PicState.windowMode}`)
+      // PC 模式下读取三键按钮区域宽度，用于右上角内容避让
+      if (PicState.windowMode) {
+        this.readTitleButtonRect(windowClass)
+      } else {
+        PicState.rightAvoidWidth = 0
+      }
+      logger.info("WindowMode", `Current mode: ${PicState.windowMode}, rightAvoid: ${PicState.rightAvoidWidth}`)
     } catch (e) {
       logger.error("WindowMode", `Change error: ${e.message}`)
+    }
+  }
+
+  /**
+   * 读取三键区域宽度写入全局状态（非窗口模式置 0）
+   */
+  private readTitleButtonRect(windowClass: window.Window): void {
+    try {
+      const rect: window.TitleButtonRect = windowClass.getTitleButtonRect()
+      PicState.rightAvoidWidth = rect.width + rect.right
+      logger.info("WindowMode", `Title button rect: width=${rect.width}, right=${rect.right}, total=${PicState.rightAvoidWidth}`)
+    } catch (error) {
+      const err = error as BusinessError
+      logger.error(`WindowMode`, `Failed to get title button rect: ${err.message}`)
     }
   }
 
